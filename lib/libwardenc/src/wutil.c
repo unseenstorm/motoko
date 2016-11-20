@@ -39,7 +39,7 @@ void logmessage(const char *format, ...) {
 }
 
 char * strtoupper(char *s) {
-	int i;
+	unsigned int i;
 	for (i = 0; i < strlen(s) && (s[i] >= 'a' && s[i] <= 'z'); i++) {
 		s[i] -=  32;
 	}

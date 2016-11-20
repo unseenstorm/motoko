@@ -151,7 +151,7 @@ static bool create_appdata() {
 					string_new(&binconf, CONFIGDIR, "/motoko/motoko.conf.default", "");
 					string_new(&modconf, CONFIGDIR, "/motoko/plugin.conf.default", "");
 					string_new(&warconf, CONFIGDIR, "/motoko/wrequest.db.default", "");
-				
+
 					printf("copying motoko.conf... ");
 					status |= (int) file_copy(binconf, ".motoko/profiles/default/motoko.conf") < 0 ? -1 : 0;
 					printf("%s\n", status ? "failed" : "done");
@@ -187,6 +187,7 @@ static bool create_appdata() {
 	return TRUE;
 }
 
+/*
 static void dump_settings() {
 	printf("\nmotoko.conf:\n\n");
 	struct iterator it = list_iterator(&settings_list);
@@ -202,6 +203,7 @@ static void dump_settings() {
 	}
 	printf("\n");
 }
+*/
 
 static void cleanup_string_setting(struct setting *s) {
 	if (s->s_var) {
@@ -273,6 +275,7 @@ static char warden_p[MAX_PATH];
 static bool sigint = FALSE;
 
 void sigint_handler(int signal) {
+	(void)signal;
 	sigint = TRUE;
 }
 
@@ -378,7 +381,7 @@ int main(int argc, char *argv[]) {
 	if (sigint) print("\n");
 
 	stop_client_manager();
-	
+
 	unload_modules();
 
 	finit_module_manager();

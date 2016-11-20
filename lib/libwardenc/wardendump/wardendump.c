@@ -106,16 +106,18 @@ void * D2WIN_get_first_control() {
 }
 
 void send_packet_dummy(unsigned char *packet, size_t len) {
+	(void)packet;
+	(void)len;
 	return;
 }
 
 #define BYTE_TO_CHAR(b) ((b >= 127 || b < 32) ? '.' : (char) b)
 
 void dump_packet(unsigned char *packet, size_t len) {
-	int i;
+	unsigned int i;
 	for (i = 0; i < len; i += 8) {
-		int end = (len - i < 8) ? len - i : 8;
-		int j;
+		unsigned int end = (len - i < 8) ? len - i : 8;
+		unsigned int j;
 		for (j = i; j < i + end; j++) {
 			printf("%02x ", (unsigned) (packet[j]));
 		}
@@ -319,7 +321,7 @@ void debug_exception_handler() {
 	case 2: {
 
 		size_t len;
-		unsigned arg;
+		/* unsigned arg; */
 		unsigned char *packet;
 
 		long args[3];
@@ -328,7 +330,7 @@ void debug_exception_handler() {
 		}
 
 		len = args[0];
-		arg = args[1];
+		/* arg = args[1]; */
 		packet = malloc(len);
 		if (read_process_memory((void *) args[2], len, packet)) {
 			free(packet);
@@ -373,7 +375,7 @@ void debug_exception_handler() {
 }
 
 int parse_arguments(int argc, char **argv) {
-	struct option long_options[] = 
+	struct option long_options[] =
 	{
 		{ "help", no_argument, 0, 'h' },
 		{ "all", no_argument, 0, 'a' },
@@ -382,7 +384,7 @@ int parse_arguments(int argc, char **argv) {
 		{ "module", required_argument, 0, 'm' },
 		{ "filter", required_argument, 0, 'f' },
 		{ "packet-handler", required_argument, 0, 'p' },
-		{ 0 }
+		{ NULL, 0, NULL, 0 }
 	};
 
 	while (optind < argc) {
@@ -393,7 +395,7 @@ int parse_arguments(int argc, char **argv) {
 		}
 
 		switch (result) {
-			
+
 			case 'h':
 			return 0;
 

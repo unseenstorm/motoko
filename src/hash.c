@@ -43,7 +43,7 @@ static void bsha1_process_block(unsigned *digest, unsigned char *buf) {
 	unsigned A, B, C, D, E;
 	int i;
 	for (i = 0; i < 16; i++) {
-		W[i] = cat_bytes(buf, i);
+		W[i] = cat_bytes(buf, i); //TODO: catch the overflow? idem at hash.c:49
 	}
 	for (i = 16; i < 80; i++) {
 		W[i] = sha1_circular_shift(W[i - 3] ^ W[i - 8] ^ W[i - 14] ^ W[i - 16], 1); /* this is just retarded */
@@ -106,10 +106,10 @@ static void bsha1(const char *message, size_t len, byte *hash) {
 
 	};
 	unsigned char buf[64];
-	int i;
+	unsigned int i;
 	for (i = 0; i < len; i += 64) {
 		memset(buf, 0, 64); /* blizzard seems not to pad the block (0x80 0x00 ... 0x00 64 bit length) */
-		int t_len = (len - i < 64) ? len -i : 64;
+		unsigned int t_len = (len - i < 64) ? len -i : 64;
 		memcpy(buf, message + i, t_len);
 		bsha1_process_block(digest, buf);
 	}
@@ -163,8 +163,9 @@ _export bool hash_cdkey(const char *cdkey, dword client_token, dword server_toke
 	char mutated_key[strlen(cdkey) + 1];
 	strcpy(mutated_key, cdkey);
 	int i;
-	for (i = 0; i < strlen(cdkey); i++) {
-		dword x = ((dword) alpha_map[(int) cdkey[i]]) * 8 * 3 + (dword) alpha_map[(int) cdkey[++i]];
+	for (i = 0; i < (int)strlen(cdkey); i++) {
+		dword x = ((dword) alpha_map[(int) cdkey[i]]) * 8 * 3 + (dword) alpha_map[(int) cdkey[i + 1]];
+		i++;
 		if (x >= 0x100) {
 			x -= 0x100;
 			checksum |= 1 << (i >> 1);

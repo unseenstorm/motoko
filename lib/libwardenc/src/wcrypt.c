@@ -264,7 +264,7 @@ void wrandom_init(wrandom_t *source, byte *seed, int len) {
 }
 
 void wrandom_generate(wrandom_t *source, size_t len, byte *buf) {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < len; i++) {
 		buf[i] = source->data[source->pos++];
@@ -306,7 +306,7 @@ void wrc4_generate_key(byte *base, size_t len, byte *key) {
 }
 
 void wrc4_apply(byte *key, size_t key_len, byte *data, size_t len) {
-	int i;
+	unsigned int i;
 	for (i = 0; i < len; i++) {
 		key[key_len]++;
 		key[key_len + 1] += key[key[key_len]];

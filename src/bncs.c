@@ -385,6 +385,7 @@ static int on_mcp_engine_connect(internal_packet_t *p) {
 }
 
 void * bncs_client_engine(void *arg) {
+	(void)arg;
 	pthread_mutex_init(&socket_m, NULL);
 
 	socket_shutdown = FALSE;
@@ -453,7 +454,7 @@ void * bncs_client_engine(void *arg) {
 
 			bnftp_download(mpq_file_time, mpq_file);
 
-			int checksum;
+			int checksum = 42;
 			dword client_token = (dword) system_get_clock_ticks();
 			dword classic_public, lod_public;
 			byte classic_hash[20], lod_hash[20];

@@ -31,7 +31,7 @@ void string_random(unsigned len, char base, unsigned range, char *seq) {
 	struct timespec t;
 	clock_gettime(CLOCK_REALTIME, &t);
 	srand(t.tv_nsec);
-	int i;
+	unsigned int i;
 	for (i = 0; i < len; i++) {
 		unsigned offset = (unsigned) ((double) rand() / (((double) RAND_MAX + (double) 1)
 				/ (double) range));
@@ -55,7 +55,7 @@ size_t string_to_byte(const char *string, byte *bytes) {
 }
 
 char * string_to_lower_case(char *s) {
-	int i;
+	unsigned int i;
 	for (i = 0; i < strlen(s); i++) {
 		s[i] += (s[i] >= 'A' && s[i] <= 'Z') ? 32 : 0;
 	}
@@ -63,7 +63,7 @@ char * string_to_lower_case(char *s) {
 }
 
 char * string_to_upper_case(char *s) {
-	int i;
+	unsigned int i;
 	for (i = 0; i < strlen(s); i++) {
 		s[i] -= (s[i] >= 'a' && s[i] <= 'z') ? 32 : 0;
 	}
@@ -112,7 +112,7 @@ bool string_compare(char *a, char *b, bool case_sensitive) {
 	if (case_sensitive) {
 		return !strcmp(a, b);
 	} else if (strlen(a) == strlen(b)) {
-		int i;
+		unsigned int i;
 		for (i = 0; i < strlen(a); i++) {
 			if (a[i] >= 'a' && a[i] <= 'z') {
 				if (a[i] != b[i] && a[i] != b[i] + 0x20) {
@@ -133,7 +133,7 @@ bool string_compare(char *a, char *b, bool case_sensitive) {
 }
 
 bool string_is_numeric(char *s) {
-	int i;
+	unsigned int i;
 	for (i = 0; i < strlen(s); i++) {
 		if (s[i] < '0' || s[i] > '9') {
 			return FALSE;
@@ -162,4 +162,3 @@ char * string_format_time(int seconds) {
 
 	return strdup(buf);
 }
-

@@ -308,7 +308,7 @@ static int on_internal_fatal_error(internal_packet_t *p) {
 	//pthread_cond_signal(&cm_continue_cv);
 
 	//pthread_mutex_unlock(&cm_continue_m);
-	
+
 	cm_fatal_error = TRUE;
 
 	return FORWARD_PACKET;
@@ -333,6 +333,7 @@ static int on_internal_request(internal_packet_t *p) {
 }
 
 void * client_manager_thread(void *arg) {
+	(void)arg;
 	while (!cm_shutdown) {
 
 		pthread_mutex_lock(&cm_continue_m);
@@ -409,7 +410,7 @@ void stop_client_manager() {
 	//stop_client_engine(D2GS_CLIENT_ENGINE);
 	//stop_client_engine(MCP_CLIENT_ENGINE);
 	//stop_client_engine(BNCS_CLIENT_ENGINE);
-	
+
 	pthread_mutex_lock(&cm_continue_m);
 
 	// signal to stop engines

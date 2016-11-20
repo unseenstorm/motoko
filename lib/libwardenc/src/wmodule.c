@@ -31,7 +31,7 @@
 
 //#include "winapi.h"
 #include "wardenc.h"
-extern wardenc_callbacks *callbacks; 
+extern wardenc_callbacks *callbacks;
 
 #include "wmodule.h"
 #include "wutil.h"
@@ -79,10 +79,15 @@ void __attribute__((stdcall)) send_packet_export(byte *packet, dword size) {
 }
 
 bool __attribute__((stdcall)) check_module_export(byte *module_name, dword _2) {
+	(void)module_name;
+	(void)_2;
 	return TRUE;
 }
 
 wfunc_list ** __attribute__((stdcall)) load_module_export(byte *RC4_key, byte *module, dword size) {
+	(void)RC4_key;
+	(void)module;
+	(void)size;
 	return NULL;
 }
 
@@ -102,13 +107,15 @@ void __attribute__((stdcall)) free_export(void *mem) {
 }
 
 void __attribute__((stdcall)) set_RC4_data_export(void *RC4_keys, dword size) {
-	size = size; // just to make sure the compiler doesn't kill this function
+	(void)RC4_keys;
+	size = (dword)size; // just to make sure the compiler doesn't kill this function
 	return;
 }
 
 byte *new_RC4keys = NULL;
 
 dword __attribute__((stdcall)) get_RC4_data_export(void *buf, dword *size) {
+	(void)size;
 
 	/* we save the position of the module's RC4 keys */
 	new_RC4keys = buf;
@@ -174,7 +181,7 @@ static const byte rsa_e[] = {
 };
 
 void reverse_bytes(byte *a, byte *b, size_t len) {
-	int i;
+	unsigned int i;
 	for (i = 0; i < len; i++) {
 		b[len - i - 1] = a[i];
 	}
@@ -189,7 +196,7 @@ bool wmodule_validate_decrypted(byte *raw, size_t len, char *key_string) {
 	byte *rsa_md, *rsa_tmp, rsa_sig[0x100];
 	byte sha1_md[0x100];
 
-	int i;
+	unsigned int i;
 	for (i = 0; i < sizeof(rsa_sig); i++) {
 		/* this might be incorrect, should be 0xBB all the way according to skullsecurity */
 		sha1_md[i] = i < sizeof(rsa_sig) - 1 ? 0xBB : 0x0B;
@@ -320,7 +327,7 @@ byte * wmodule_load(byte *raw) {
 	dest_off = 0;
 
 	/* adjusting references to global variables */
-	int i;
+	unsigned int i;
 	for (i = 0; i < DWORD(module, 0x0C); i++) {
 		if (((char) module[src_off]) < 0) {
 			dest_off = ((module[src_off + 0] & 0x07F) << 24) | ((module[src_off + 1] & 0x0FF) << 16) | ((module[src_off + 2] & 0x0FF) << 8) | ((module[src_off + 3] & 0x0FF) << 0);
@@ -459,7 +466,7 @@ void wmodule_save_to_disk(char *path, byte *module, byte *name, size_t len) {
 
 	FILE *f = fopen(file, "wb");
 	if (f) {
-		int i;
+		unsigned int i;
 		for (i = 0; i < len; i++) {
 			fprintf(f, "%c", module[i]);
 		}

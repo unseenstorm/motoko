@@ -35,10 +35,12 @@ static char *user32 = "USER32.dll";
 /* supported KERNEL32.dll functions */
 
 bool __attribute__((stdcall)) IsValidCodePage(unsigned cpage) {
+	(void)cpage;
 	return FALSE;
 }
 
 void * __attribute__((stdcall)) GetStdHandle(dword std_handle) {
+	(void)std_handle;
 	return NULL;
 }
 
@@ -47,19 +49,26 @@ void __attribute__((stdcall)) Sleep(dword ms) {
 }
 
 bool __attribute__((stdcall)) TlsFree(dword index) {
+	(void)index;
 	return FALSE;
 }
 
 void * __attribute__((stdcall)) TlsGetValue(dword index) {
+	(void)index;
 	return NULL;
 }
 
 bool __attribute__((stdcall)) TlsSetValue(dword index, void *val) {
+	(void)index;
+	(void)val;
 	return FALSE;
 }
 
 void __attribute__((stdcall)) RaiseException(dword code, dword flags, dword nargs, void *args) {
-	code = code;
+	code = (dword)code;
+	(void)flags;
+	(void)nargs;
+	(void)args;
 	return;
 }
 
@@ -68,11 +77,14 @@ dword __attribute__((stdcall)) TlsAlloc() {
 }
 
 void * __attribute__((stdcall)) AddVectoredExceptionHandler(bool first, void *handler) {
+	(void)first;
+	(void)handler;
 	return NULL;
 }
 
 bool * __attribute__((stdcall)) RemoveVectoredExceptionHandler(void *handler) {
-	return FALSE;
+	(void)handler;
+	return NULL;
 }
 
 void * __attribute__((stdcall)) GetProcAddress(void *module, char *proc) {
@@ -95,23 +107,31 @@ dword __attribute__((stdcall)) GetTickCount() {
 }
 
 bool __attribute__((stdcall)) GetVersionExA(void *ver_info) {
+	(void)ver_info;
 	return FALSE;
 }
 
 void __attribute__((stdcall)) GetSystemInfo(void *sys_info) {
-	sys_info = sys_info;
+	sys_info = (void *)sys_info;
 	return;
 }
 
 dword __attribute__((stdcall)) QueryDosDeviceA(char *name, char *path, dword ucch_max) {
+	(void)name;
+	(void)path;
+	(void)ucch_max;
 	return 0;
 }
 
 size_t __attribute__((stdcall)) VirtualQuery(void *addr, void *buf, size_t len) {
+	(void)addr;
+	(void)buf;
+	(void)len;
 	return 0;
 }
 
 bool __attribute__((stdcall)) CloseHandle(void *handle) {
+	(void)handle;
 	return FALSE;
 }
 
@@ -120,10 +140,18 @@ void * __attribute__((stdcall)) GetCurrentProcess() {
 }
 
 bool __attribute__((stdcall))  FreeLibrary(void *module) {
+	(void)module;
 	return FALSE;
 }
 
 bool __attribute__((stdcall))  DuplicateHandle(void *src_phandle, void *src_handle, void *dest_phandle, void *dest_handle, dword access, bool inherit, dword options) {
+	(void)src_phandle;
+	(void)src_handle;
+	(void)dest_phandle;
+	(void)dest_handle;
+	(void)access;
+	(void)inherit;
+	(void)options;
 	return FALSE;
 }
 
@@ -143,22 +171,30 @@ void * __attribute__((stdcall)) GetProcessHeap() {
 }
 
 bool __attribute__((stdcall)) HeapFree(void *heap, dword flags, void *mem) {
+	(void)heap;
+	(void)flags;
+	(void)mem;
 	return FALSE;
 }
 
 bool __attribute__((stdcall)) TerminateProcess(void *p, int exit_code) {
+	(void)p;
+	(void)exit_code;
 	return FALSE;
 }
 
 dword __attribute__((stdcall)) UnhandledExceptionFilter(void *excp_info) {
+	(void)excp_info;
 	return 0;
 }
 
 void * __attribute__((stdcall)) SetUnhandledExceptionFilter(void *filter) {
+	(void)filter;
 	return NULL;
 }
 
 bool __attribute__((stdcall)) QueryPerformanceCounter(void *perform_count) {
+	(void)perform_count;
 	return FALSE;
 }
 
@@ -171,22 +207,29 @@ dword __attribute__((stdcall)) GetCurrentProcessId() {
 }
 
 void __attribute__((stdcall)) GetSystemTimeAsFileTime(void *sys_time) {
-	sys_time = sys_time;
+	sys_time = (void *)sys_time;
 	return;
 }
 
 void __attribute__((stdcall)) RtlUnwind(void *frame, void *ip, void *excp, int ret) {
-	frame = frame;
+	frame = (void *)frame;
+	(void)ip;
+	(void)excp;
+	(void)ret;
 	return;
 }
 
 /* supported USER32.dll functions */
 
 dword __attribute__((stdcall)) CharUpperBuffA(char *buf, dword size) {
+	(void)buf;
+	(void)size;
 	return 0;
 }
 
 void * __attribute__((stdcall)) BeginPaint(void *hwnd, void *paint) {
+	(void)hwnd;
+	(void)paint;
 	return NULL;
 }
 

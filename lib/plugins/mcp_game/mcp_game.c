@@ -96,7 +96,7 @@ typedef struct keyset {
 	char classic[27];
 } keyset_t;
 
-#define keyset_new() (keyset_t) { 0 }
+#define keyset_new() (keyset_t) {{ 0 }, { 0 }}
 
 static struct keyset *keyset;
 static int n_keyset;
@@ -174,7 +174,7 @@ _export module_type_t module_get_type() {
 
 _export bool module_load_config(struct setting_section *s) {
 	int i;
-	
+
 	if (!strcmp(s->name, "KeySet")) {
 		n_keyset++;
 		keyset = realloc(keyset, n_keyset * sizeof(keyset_t));
@@ -395,7 +395,7 @@ int mcp_gamelist_handler(void *p) {
 	} else {
 		g.joined = FALSE;
 		g.active = TRUE;
-		
+
 		if (g.index) {
 			list_add(&public_games, &g);
 
@@ -440,6 +440,7 @@ static void switch_keys() {
 }
 
 _export void * module_thread(void *arg) {
+	(void)arg;
 
 	pthread_mutex_lock(&mcp_char_logon_mutex);
 
@@ -524,7 +525,7 @@ _export void * module_thread(void *arg) {
 
 			char *c_setting = strdup(module_setting("GameNamePass")->s_var);
 
-			char *tok = strtok(c_setting, "/");	
+			char *tok = strtok(c_setting, "/");
 			snprintf(game_name, 15, "%s-%s%i", tok ? tok : "", game_count < 10 ? "0" : "", game_count);
 
 			tok = strtok(NULL, "/");
@@ -662,7 +663,7 @@ int mcp_creategame_handler(void *p) {
 	mcp_responsed = TRUE;
 
 	dword status = net_get_data(incoming.data, 6, dword);
-	
+
 	switch (status) {
 
 	case 0x00: {
@@ -671,7 +672,7 @@ int mcp_creategame_handler(void *p) {
 		game_created = TRUE;
 		break;
 	}
-	
+
 	case 0x1e: {
 		plugin_error("mcp game", "error: invalid game name\n");
 		break;
@@ -734,7 +735,7 @@ int mcp_joingame_handler(void *p) {
 		plugin_error("mcp game", "error: game does not exist\n");
 		break;
 	}
-	
+
 	case 0x2b: {
 		plugin_error("mcp game", "error: game is full\n");
 		break;

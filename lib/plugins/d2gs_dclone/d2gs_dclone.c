@@ -106,7 +106,7 @@ _export module_type_t module_get_type() {
 	return (module_type_t) { MODULE_D2GS, MODULE_ACTIVE };
 }
 
-_export bool module_load_config(struct setting_section *s) {		
+_export bool module_load_config(struct setting_section *s) {
 	int i;
 	for (i = 0; i < s->entries; i++) {
 		struct setting *set = module_setting(s->settings[i].name);
@@ -174,6 +174,7 @@ _export bool module_finit() {
 }
 
 _export void * module_thread(void *arg) {
+	(void)arg;
 	bool hit = FALSE;
 
 	char s_addr[INET_ADDRSTRLEN];
@@ -199,7 +200,7 @@ _export void * module_thread(void *arg) {
 		// sing the pina colada song in order to keep the game open
 		// actually I'm not sure if it's enough to keep the game from closing
 		while (!relieved && !d2gs_cleanup) {
-			int i;
+			unsigned int i;
 			for (i = 0; i < (sizeof(pina_colada_song) / sizeof(char *)) && !d2gs_cleanup && !relieved; i++) {
 				d2gs_send(0x14, "00 00 %s 00 00 00", pina_colada_song[i]);
 
@@ -246,7 +247,7 @@ int on_mcp_join_game(void *p) {
 	if (status == 0x00) {
 		cur_addr = net_get_data(packet->data, 6, dword);
 	}
-	
+
 	return FORWARD_PACKET;
 }
 

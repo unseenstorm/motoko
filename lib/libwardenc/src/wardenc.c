@@ -53,7 +53,8 @@ void wardenc_sniff_request(char *check) {
 
 void wardenc_parse_response(byte *packet, size_t size) {
 	// dump request + resonse
-	
+
+	(void)size;
 	static int j = 0;
 
 	char *file = strconcat(wardenc_dir, "wrequest.dump");
@@ -143,7 +144,7 @@ char * wardenc_check_mem(byte *packet, size_t rem, char **libs, int n_libs, byte
 	if (rem >= 7) {
 		if (packet[1] < n_libs && packet[1] > 0) {
 			if (strstr(libs[packet[1]], ".dll") && DWORD(packet, 2) < 0x00100000 && packet[6] < 0x40) {
-				
+
 				if (sniff) {
 					logmessage("%02X ", packet[0] ^ k);
 					logmessage("memcheck: %s + 0x%X (%i bytes)\n", libs[packet[1]], DWORD(packet, 2), packet[6]);
@@ -168,7 +169,7 @@ char * wardenc_check_mem(byte *packet, size_t rem, char **libs, int n_libs, byte
 char * wardenc_check_page(byte *packet, size_t rem, byte k, bool sniff, int *pos) {
 	if (rem >= 30) {
 		if (packet[28] == 0 && packet[27] <= 0x40 && packet[29] <= 0x80) {
-				
+
 			if (sniff) {
 				logmessage("%02X ", packet[0] ^ k);
 				logmessage("pagecheck: seed: %08X address: 0x%08X (%i bytes)\n", DWORD(packet, 1), DWORD(packet, 25), packet[29]);
@@ -193,7 +194,7 @@ char * wardenc_check_mpq(byte *packet, size_t rem, char **libs, int n_libs, byte
 	if (rem >= 2) {
 		if (packet[1] < n_libs && packet[1] > 0) {
 			if (strstr(libs[packet[1]], ".txt") || strstr(libs[packet[1]], ".D2")) {
-				
+
 				if (sniff)  {
 					logmessage("%02X ", packet[0] ^ k);
 					logmessage("mpqcheck: %s\n", libs[packet[1]]);
@@ -219,9 +220,9 @@ byte * wardenc_parse_request(byte *packet, size_t len, size_t *n_response, bool 
 	byte *response = NULL;
 	*n_response = 0;
 
-	int i = 1, j;
+	unsigned int i = 1, j;
 	char **libs = (char **) malloc(sizeof(char *));
-	int n_libs = 1;
+	unsigned int n_libs = 1;
 	byte k = packet[len - 1];
 
 	while (packet[i++] != 0) {
@@ -248,7 +249,7 @@ byte * wardenc_parse_request(byte *packet, size_t len, size_t *n_response, bool 
 			suc += 7;
 
 			response = (byte *) realloc(response, *n_response + strlen(ret) / 2);
-			int m;
+			unsigned int m;
 			for (m = 0; m < strlen(ret) / 2; m++) {
 				unsigned b1;
 				sscanf(ret + m * 2, "%02X", (dword *) (&b1));
@@ -261,7 +262,7 @@ byte * wardenc_parse_request(byte *packet, size_t len, size_t *n_response, bool 
 			suc += 2;
 
 			response = (byte *) realloc(response, *n_response + strlen(ret) / 2);
-			int m;
+			unsigned int m;
 			for (m = 0; m < strlen(ret) / 2; m++) {
 				unsigned b1;
 				sscanf(ret + m * 2, "%02X", (dword *) (&b1));
@@ -274,7 +275,7 @@ byte * wardenc_parse_request(byte *packet, size_t len, size_t *n_response, bool 
 			suc += 30;
 
 			response = (byte *) realloc(response, *n_response + strlen(ret) / 2);
-			int m;
+			unsigned int m;
 			for (m = 0; m < strlen(ret) / 2; m++) {
 				unsigned b1;
 				sscanf(ret + m * 2, "%02X", (dword *) (&b1));
@@ -634,7 +635,7 @@ void wardenc_on_received(byte *incoming, size_t len, bool sniff) {
 			} else {
 				/* we couldn't generate a response to this request */
 				logmessage("error: failed to generate response for following request:\n\n");
-				int i;
+				unsigned int i;
 				for (i = 0; i < size; i++) {
 					logmessage("%02x ", packet[i]);
 				}

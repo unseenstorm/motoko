@@ -181,24 +181,28 @@ static int merc_rez;
 /* ---------------------------- */
 
 void cast_self(object_t *obj, dword arg) {
+	(void)arg;
 	d2gs_send(0x0c, "%w %w", obj->location.x, obj->location.y);
 
 	msleep(module_setting("CastDelay")->i_var);
 }
 
 void cast_right(object_t *obj, dword arg) {
+	(void)arg;
 	d2gs_send(0x0d, "01 00 00 00 %d", obj->id);
 
 	msleep(module_setting("CastDelay")->i_var);
 }
 
 void cast_left(object_t *obj, dword arg) {
+	(void)arg;
 	d2gs_send(0x06, "01 00 00 00 %d", obj->id);
 
 	msleep(module_setting("CastDelay")->i_var);
 }
 
 void swap_right(object_t *obj, dword arg) {
+	(void)obj;
 	if (cur_rskill == arg) {
 		return;
 	}
@@ -211,6 +215,7 @@ void swap_right(object_t *obj, dword arg) {
 }
 
 void swap_left(object_t *obj, dword arg) {
+	(void)obj;
 	if (cur_lskill == arg) {
 		return;
 	}
@@ -223,6 +228,8 @@ void swap_left(object_t *obj, dword arg) {
 }
 
 void switch_slot(object_t *obj, dword arg) {
+	(void)arg;
+	(void)obj;
 	msleep(300);
 
 	pthread_mutex_lock(&switch_slot_m);
@@ -285,7 +292,7 @@ void assemble_sequence(struct list *sequence, char *description) {
 							list_add(sequence, &a);
 							lskill = skill;
 						}
-	
+
 						action_t a = { cast_left, 0 };
 						list_add(sequence, &a);
 					} else if (!strcmp(side, "right") && skill >= 0) {
@@ -303,7 +310,7 @@ void assemble_sequence(struct list *sequence, char *description) {
 							list_add(sequence, &a);
 							rskill = skill;
 						}
-					
+
 						action_t a = { cast_self, 0 };
 						list_add(sequence, &a);
 					}
@@ -332,7 +339,7 @@ npc_t * npc_new(d2gs_packet_t *packet, npc_t *new) {
 	new->object.location.y = net_get_data(packet->data, 8, word);
 	new->hp = net_get_data(packet->data, 10, byte);
 	new->mods = 0;
-	
+
 	int i = 12 * 8;
 
 	// section 1: animation mode
@@ -406,7 +413,7 @@ char * npc_superunique_lookup_name(dword index) {
 
 int npc_lookup_mod(char *mod) {
 	int i;
-	
+
 	for (i = 0; i < N_NPC_MOD; i++) {
 		if (string_compare(mod, (char *) s_npc_mod[i], FALSE)) {
 			return i;
@@ -457,7 +464,7 @@ bool npc_compare_name(npc_t *n, char *s_n) {
 void npc_refresh() {
 	pthread_mutex_lock(&npcs_m);
 
-	list_clear(&npcs);	
+	list_clear(&npcs);
 
 	list_clone(&npcs_l, &npcs);
 
@@ -507,7 +514,7 @@ bool npc_shop(char *s_npc) {
 
 	//pthread_mutex_lock(&npcs_m);
 	//pthread_cleanup_push((cleanup_handler) pthread_mutex_unlock, (void *) &npcs_m);
-	
+
 	npc_refresh();
 
 	npc_t *npc = list_find(&npcs, (comparator_t) npc_compare_name, s_npc);
@@ -537,7 +544,7 @@ bool npc_shop(char *s_npc) {
 			s =  TRUE;
 		} else {
 			plugin_print("pes", "failed to heal/shop at %s\n", npc_lookup_name(npc));
-	
+
 			s = FALSE;
 		}
 
@@ -589,7 +596,7 @@ bool npc_merc(char *s_npc) {
 
 	//pthread_mutex_lock(&npcs_m);
 	//pthread_cleanup_push((cleanup_handler) pthread_mutex_unlock, (void *) &npcs_m);
-	
+
 	npc_refresh();
 
 	npc_t *npc = list_find(&npcs, (comparator_t) npc_compare_name, s_npc);
@@ -703,7 +710,7 @@ int d2gs_update_npc(void *p) {
 		case 0x69: {
 			n.object.id = net_get_data(packet->data, 0, dword);
 
-			npc = list_find(&npcs_l, (comparator_t) npc_compare_id, &n); 
+			npc = list_find(&npcs_l, (comparator_t) npc_compare_id, &n);
 			if (npc) {
 				npc->object.location.x = net_get_data(packet->data, 5, word);
 				npc->object.location.y = net_get_data(packet->data, 7, word);
@@ -719,7 +726,7 @@ int d2gs_update_npc(void *p) {
 				}
 			}
 
-			npc = list_find(&npcs, (comparator_t) npc_compare_id, &n); 
+			npc = list_find(&npcs, (comparator_t) npc_compare_id, &n);
 			if (npc) {
 				npc->object.location.x = net_get_data(packet->data, 5, word);
 				npc->object.location.y = net_get_data(packet->data, 7, word);
@@ -1008,7 +1015,7 @@ bool _moveto(int x, int y) {
 
 	//int t_s = t / 1000;
 	//int t_ns = (t - (t_s * 1000)) * 1000 * 1000;
-	
+
 	//struct timespec ts;
 	//clock_gettime(CLOCK_REALTIME, &ts);
 	//ts.tv_sec += t_s;
@@ -1017,14 +1024,14 @@ bool _moveto(int x, int y) {
 	d2gs_send(0x03, "%w %w", (word) p.x, (word) p.y);
 
 	//pthread_cond_timedwait(&game_exit_cv, &game_exit_m, &ts);
-	
+
 	plugin_debug("pes", "sleeping for %ims\n", t);
-	
+
 	msleep(t > 3000 ? 3000 : t);
-	
+
 	//end:
 	//pthread_cleanup_pop(1);
-	
+
 	return TRUE;
 }
 
@@ -1036,7 +1043,7 @@ void teleport(int x, int y) {
 	swap_right(NULL, 0x36);
 
 	d2gs_send(0x0c, "%w %w", x, y);
-	
+
 	msleep(module_setting("CastDelay")->i_var);
 }
 
@@ -1072,7 +1079,7 @@ void attack(char *s_npc) {
 
 				continue;
 			}
-			
+
 			npc_attack(npc);
 
 			found = TRUE;
@@ -1151,13 +1158,13 @@ void waypoint(dword area) {
 	}
 
 	msleep(500);
-	
+
 	plugin_print("pes", "took waypoint %02X\n", area);
 }
 
 void redportal() {
 	d2gs_send(0x13, "02 00 00 00 %d", rp.id);
-	
+
 	if (merc.id) {
 		msleep(300);
 
@@ -1176,6 +1183,7 @@ void leave() {
 }
 
 _export void * module_thread(void *unused) {
+	(void)unused;
 	struct timespec ts;
 	clock_gettime(CLOCK_REALTIME, &ts);
 	ts.tv_sec += 2;
@@ -1275,7 +1283,7 @@ _export void * module_thread(void *unused) {
 		// pickit
 		//internal_send(0x9c, "%s 00", "pickit");
 		execute_module_schedule(MODULE_D2GS);
-		
+
 		if (module_setting("RunEldritch")->b_var || module_setting("RunShenk")->b_var) {
 			if (!townportal()) {
 				leave();
@@ -1319,7 +1327,7 @@ _export void * module_thread(void *unused) {
 		// pickit
 		//internal_send(0x9c, "%s 00", "pickit");
 		execute_module_schedule(MODULE_D2GS);
-	
+
 		if (module_setting("RunShenk")->b_var) {
 			// teleport to shenk
 			teleport(3741, 5074);
@@ -1355,7 +1363,7 @@ _export void * module_thread(void *unused) {
 
 	// clear bloody foothills
 	// monsters:
-	// enslaved, death mauler, 
+	// enslaved, death mauler,
 
 	pthread_exit(NULL);
 }
@@ -1370,9 +1378,9 @@ _export void module_cleanup() {
 	act = 0;
 	list_clear(&npcs);
 	list_clear(&npcs_l);
-	
+
 	if (!runs) return;
-	
+
 	time_t cur;
 	int duration = (int) difftime(time(&cur), run_start);
 	runtime += duration;

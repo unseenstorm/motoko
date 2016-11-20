@@ -93,7 +93,7 @@ bool list_remove(struct list *l, void *e) {
 
 	int offset = e - l->elements;
 
-	if ((offset < 0) || (offset >= l->len * l->size) || (offset % l->size != 0))  {
+	if ((offset < 0) || ((unsigned int) offset >= l->len * l->size) || (offset % l->size != 0))  {
 
 		//pthread_mutex_unlock(&l->mutex);
 
@@ -180,7 +180,7 @@ void * list_element(struct list *l, int index) {
 
 	//pthread_mutex_lock(&l->mutex);
 
-	if (index >= l->len) {
+	if (index >= (int) l->len) {
 		e = NULL;
 	} else {
 		//e = malloc(l->size);
@@ -194,7 +194,7 @@ void * list_element(struct list *l, int index) {
 }
 
 void * list_find(struct list *l, int (*comparator)(const void *, const void *), void *e) {
-	int index;
+	unsigned int index;
 
 	//pthread_mutex_lock(&l->mutex);
 
@@ -236,6 +236,7 @@ void iterator_remove(struct iterator *i) {
 }
 
 void iterator_destroy(struct iterator *i) {
+	(void)i;
 	/*if (i->element) {
 		free(i->element);
 	}*/

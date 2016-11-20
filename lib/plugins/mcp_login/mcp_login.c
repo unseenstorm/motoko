@@ -28,6 +28,7 @@
 #include <packet.h>
 #include <settings.h>
 #include <gui.h>
+#include <internal.h>
 
 #include <util/list.h>
 #include <util/net.h>
@@ -123,6 +124,7 @@ _export bool module_finit() {
 }
 
 _export void * module_thread(void *arg) {
+	(void)arg;
 	return NULL;
 }
 
@@ -181,7 +183,7 @@ int mcp_charlist_handler(void *p) {
 	mcp_packet_t incoming = *MCP_CAST(p);
 
 	word count = net_get_data(incoming.data, 6, word);
-	
+
 	ui_console_lock();
 
 	plugin_print("mcp login", "list of characters (%i total):\n", count);
@@ -192,7 +194,7 @@ int mcp_charlist_handler(void *p) {
 	for (i = 0; i < count; i++) {
 		char name[64];
 		net_extract_string(incoming.data, name, offset);
-		
+
 		print(" - %s\n", name);
 
 		offset += strlen(name) + 1;

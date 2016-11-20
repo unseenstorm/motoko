@@ -198,6 +198,7 @@ _export bool module_finit() {
 }
 
 _export void * module_thread(void *arg) {
+	(void)arg;
 	pthread_mutex_lock(&chicken_m);
 
 	if (!exit_ack) {
@@ -282,7 +283,7 @@ bool potion(int type) {
 	case HEALTH_POTION:
 		code = "hp";
 		break;
-		
+
 	case MANA_POTION:
 		code = "mp";
 		break;
@@ -345,7 +346,7 @@ int d2gs_char_update(void *p) {
 				plugin_print("chicken", "use mana pot (%i mp)\n", updated_mp);
 			}
 		}
-		
+
 		hp = updated_hp;
 		mp = updated_mp;
 	}
@@ -474,6 +475,7 @@ int d2gs_on_npc_quit(void *p) {
 }
 
 int d2gs_on_exit_ack(void *p) {
+	(void)p;
 	pthread_mutex_lock(&chicken_m);
 
 	exit_ack = TRUE;

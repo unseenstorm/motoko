@@ -37,7 +37,7 @@
 #include "util/string.h"
 
 bool net_is_hostname(const char *s) {
-	int i;
+	unsigned int i;
 	for (i = 0; i < strlen(s); i++) {
 		if ((s[i] < '0' || s[i] > '9') && s[i] != '.') {
 			return TRUE;
@@ -153,7 +153,7 @@ size_t net_send(int sockfd, void *data, size_t len) {
 }
 
 size_t net_receive(int socket, void *data, size_t len) {
-	size_t bytes = 0;
+	ssize_t bytes = 0;
 	bytes = recv(socket, data, len, 0);
 	if (bytes < 0) {
 		char *e;
@@ -163,7 +163,7 @@ size_t net_receive(int socket, void *data, size_t len) {
 		return -1;
 	}
 	//printf("received %i byte(s)\n", bytes);
-	return bytes;
+	return (size_t) bytes;
 }
 
 size_t net_extract_string(void *data, char *string, int offset) {
@@ -176,7 +176,7 @@ size_t net_extract_string(void *data, char *string, int offset) {
 }
 
 size_t net_insert_string(void *data, const char *string, int offset) {
-	int i;
+	unsigned int i;
 	for (i = offset; i < offset + strlen(string); i++) {
 		((byte *) data)[i] = string[i - offset];
 	}
@@ -270,10 +270,10 @@ static char byte_to_char(byte b) {
 }
 
 void net_dump_data(void *packet, size_t len, int c, void (*print)(int, char *, ...)) {
-	int i;
+	unsigned int i;
 	for (i = 0; i < len; i += 8) {
-		int end = (len - i < 8) ? len - i : 8;
-		int j;
+		unsigned int end = (len - i < 8) ? len - i : 8;
+		unsigned int j;
 		for (j = i; j < i + end; j++) {
 			print(c, "%02x ", ((byte *) packet)[j]);
 		}

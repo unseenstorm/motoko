@@ -165,7 +165,7 @@ int on_d2gs_send(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	switch(packet->id) {
-		
+
 		case 0x68: {
 			replay.tick = replay_get_tick_count();
 			strcpy(replay.toon, (char *) &packet->data[20]);
@@ -187,7 +187,7 @@ int on_d2gs_send(void *p) {
 
 			byte new[16] = { 0 };
 			byte new_c[D2GS_COMPRESS_BUFFER_SIZE];
-			
+
 			new[0] = 0x4c;
 			*(dword *)&new[2] = player_id;
 			new[6] = cur_skill[side];
@@ -311,7 +311,7 @@ _export module_type_t module_get_type() {
 	return (module_type_t) { MODULE_D2GS, MODULE_PASSIVE };
 }
 
-_export bool module_load_config(struct setting_section *s) {		
+_export bool module_load_config(struct setting_section *s) {
 	int i;
 	for (i = 0; i < s->entries; i++) {
 		struct setting *set = module_setting(s->settings[i].name);
@@ -351,7 +351,7 @@ _export bool module_init() {
 		register_packet_handler(D2GS_RECEIVED, id, on_d2gs_receive);
 	}
 
-	int i;
+	unsigned int i;
 	for (i = 0; i < sizeof(on_send_id); i++) {
 		register_packet_handler(D2GS_SENT, on_send_id[i], on_d2gs_send);
 	}
@@ -392,7 +392,7 @@ _export bool module_finit() {
 		unregister_packet_handler(D2GS_RECEIVED, id, on_d2gs_receive);
 	}
 
-	int i;
+	unsigned int i;
 	for (i = 0; i < sizeof(on_send_id); i++) {
 		unregister_packet_handler(D2GS_SENT, on_send_id[i], on_d2gs_send);
 	}
@@ -409,6 +409,7 @@ _export bool module_finit() {
 }
 
 _export void * module_thread(void *arg) {
+	(void)arg;
 	return NULL;
 }
 

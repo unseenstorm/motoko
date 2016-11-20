@@ -156,7 +156,7 @@ void waypoint(dword area) {
 	}*/
 
 	msleep(500);
-	
+
 	plugin_print("meph", "took waypoint %02X\n", area);
 }
 
@@ -170,7 +170,7 @@ void moveto(int x, int y) {
 	d2gs_send(0x03, "%w %w", (word) p.x, (word) p.y);
 
 	plugin_debug("pes", "sleeping for %ims\n", t);
-	
+
 	msleep(t > 3000 ? 3000 : t);
 }
 
@@ -258,6 +258,7 @@ int process_incoming_packet(void *p) {
 }
 
 _export void * module_thread(void *arg) {
+	(void)arg;
 	time_t run_start;
 	time(&run_start);
 	moveto(5132, 5165);

@@ -58,21 +58,21 @@ replay_t * replay_load_file(const char *file, replay_t *replay) {
 	else c = file;
 
 	strncpy(replay->file.name, c, 24);
-	
+
 	struct stat st;
 	if (!stat(file, &st)) {
 		replay->file.size = st.st_size;
 	}
 
 	//fseek(f, 56, SEEK_SET);
-	
+
 	fread(&replay->toon, 16, 1, f);
 	fread(&replay->game, 16, 1, f);
 	fread(&replay->time, 20, 1, f);
 	fread(&replay->length, 4, 1, f);
 	fread(&replay->count, 4, 1, f);
 
-	int i;
+	unsigned int i;
 	for (i = 0; i < replay->count; i++) {
 		r_packet_t *new = (r_packet_t *) malloc(sizeof(r_packet_t));
 
@@ -176,7 +176,7 @@ void replay_add_file(replay_t *replay, replay_t *new, int *count) {
 
 	r_packet_t *q = new->head;
 
-	int i;
+	unsigned int i;
 	for (i = 0; i < replay->count && q; i++) {
 		r_packet_t *packet = (r_packet_t *) malloc(sizeof(r_packet_t));
 

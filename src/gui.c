@@ -70,6 +70,7 @@ _export void ui_console_unlock() {
 	pthread_mutex_unlock(&console_mutex);
 }
 
+/*
 static void ui_wprint(WINDOW *w, int c, char *format, ...) {
 
 	if (has_colors()) {
@@ -83,8 +84,10 @@ static void ui_wprint(WINDOW *w, int c, char *format, ...) {
 
 	wrefresh(w);
 }
+*/
 
 _export void ui_print(int c, char *format, ...) {
+	(void)c;
 	pthread_mutex_lock(&console_mutex);
 
 	va_list args;
@@ -130,6 +133,7 @@ _export void ui_print(int c, char *format, ...) {
 }
 
 _export void ui_print_plugin(int c, char *p, char *format, ...) {
+	(void)c;
 	pthread_mutex_lock(&console_mutex);
 
 	printf("[plugin %s] ", p);
@@ -156,6 +160,7 @@ _export void ui_print_plugin(int c, char *p, char *format, ...) {
 }
 
 _export void ui_print_debug(int c, char *format, ...) {
+	(void)c;
 	if (!setting("Debug")->b_var) {
 		return;
 	}
@@ -186,6 +191,7 @@ _export void ui_print_debug(int c, char *format, ...) {
 }
 
 _export void ui_print_debug_plugin(int c, char *p, char *format, ...) {
+	(void)c;
 	if (!setting("Debug")->b_var) {
 		return;
 	}
@@ -216,15 +222,19 @@ _export void ui_print_debug_plugin(int c, char *p, char *format, ...) {
 }
 
 _export bool ui_register_cmd(char *cmd, ui_cmd_t handler) {
+	(void)cmd;
+	(void)handler;
 	return FALSE;
 }
 
 _export bool ui_unregister_cmd(char *cmd, ui_cmd_t handler) {
+	(void)cmd;
+	(void)handler;
 	return FALSE;
 }
 
 void ui_invoke_cmd(char *input) {
-	
+	(void)input;
 }
 
 _export void ui_add_statistics(char *format, ...) {
@@ -282,6 +292,7 @@ void ui_print_statistics() {
 }
 
 // not needed
+/*
 static int string_count(char *s, char c) {
 	int i = 0;
 	char *t = s;
@@ -304,6 +315,7 @@ static char * ui_pad_string(char *str, char c) {
 static void resize_handler() {
 	ui_resized = TRUE;
 }
+*/
 
 void ui_init() {
 	ui_shutdown = FALSE;

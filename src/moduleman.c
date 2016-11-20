@@ -40,7 +40,7 @@ typedef void (*pthread_cleanup_handler_t)(void *);
 
 typedef const char * (*module_get_info_t)();
 
-typedef const int (*module_get_license_t)();
+typedef int (*module_get_license_t)();
 
 typedef module_type_t (*module_get_type_t)();
 
@@ -91,6 +91,7 @@ _export pthread_cond_t schedule_update_cond_v;
 
 static struct list mm_extensions;
 
+/*
 static void dump_module(module_t m) {
 	print("%s:\n", m.name);
 	char *bar = calloc(strlen(m.name) + 1, sizeof(char));
@@ -102,6 +103,7 @@ static void dump_module(module_t m) {
 	print("author:      %s\n", m.author());
 	print("description: %s\n", m.description());
 }
+*/
 
 void init_module_manager() {
 	int i;
@@ -343,7 +345,7 @@ void load_modules(const char *moddir) {
 	while ((file = readdir(modules))) {
 		char *ext = strrchr(file->d_name, '_');
 		if (!ext) {
-			continue;	
+			continue;
 		}
 		char *_ext;
 		string_new(&_ext, "_plugin", LT_MODULE_EXT, "");
@@ -578,7 +580,7 @@ _export void execute_module_schedule(int engine) {
 
 	pthread_mutex_lock(&mm_schedule_m[engine]);
 	// necessary because r() could call *_send (implicit pthread_exit() possible)
-	pthread_cleanup_push((pthread_cleanup_handler_t) pthread_mutex_unlock, (void *) &mm_schedule_m[engine]); 
+	pthread_cleanup_push((pthread_cleanup_handler_t) pthread_mutex_unlock, (void *) &mm_schedule_m[engine]);
 
 	it = list_iterator(&mm_schedule[engine]);
 	r = iterator_next(&it);
@@ -599,7 +601,7 @@ _export void execute_module_schedule(int engine) {
 
 	pthread_mutex_lock(&mm_schedule_m[engine]);
 	// necessary because r() could call *_send (implicit pthread_exit() possible)
-	pthread_cleanup_push((pthread_cleanup_handler_t) pthread_mutex_unlock, (void *) &mm_schedule_m[engine]); 
+	pthread_cleanup_push((pthread_cleanup_handler_t) pthread_mutex_unlock, (void *) &mm_schedule_m[engine]);
 
 	list_clear(&mm_schedule[engine]);
 
@@ -635,7 +637,7 @@ _export extension_t * extension(char *name) {
 		if (!strcmp(e->name, name)) {
 			return e;
 		}
-		
+
 	}
 	return &unsupported_extension;
 }

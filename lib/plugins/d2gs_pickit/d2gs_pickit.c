@@ -114,7 +114,7 @@ void item_dump(item_t *i) {
 	char *ethereal = (i->ethereal & UNSPECIFIED) == UNSPECIFIED ? "UNSPECIFIED" : (i->ethereal ? "yes" : "no");
 	char amount[100];
 	strcpy(amount, "UNSPECIFIED");
-	if (i->amount != (UNSPECIFIED | (UNSPECIFIED << 8) | (UNSPECIFIED << 16) | (UNSPECIFIED << 24))) {
+	if ((int)i->amount != (UNSPECIFIED | (UNSPECIFIED << 8) | (UNSPECIFIED << 16) | (UNSPECIFIED << 24))) {
 		sprintf(amount, "%u", i->amount);
 	}
 	char sockets[100];
@@ -187,7 +187,7 @@ void logitem(const char *format, ...) {
 		if(strchr(format, '\n')) {
 			newline = TRUE;
 		}
-		
+
 		va_list args;
 		va_start(args, format);
 
@@ -254,7 +254,7 @@ _export bool module_load_config(struct setting_section *s) {
 			if (!strcmp(string_to_lower_case(s->settings[i].s_var), "no")) {
 				log_item = FALSE;
 			}
-		}	
+		}
 
 		if (!strcmp(s->settings[i].name, "Code")) {
 			strncpy(item.code, string_to_lower_case(s->settings[i].s_var), 3);
@@ -346,7 +346,7 @@ _export bool module_init() {
 
 _export bool module_finit() {
 	unregister_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_item_action);
-	
+
 	unregister_packet_handler(D2GS_RECEIVED, 0x15, d2gs_char_location_update);
 	unregister_packet_handler(D2GS_RECEIVED, 0x95, d2gs_char_location_update);
 	unregister_packet_handler(D2GS_SENT, 0x0c, d2gs_char_location_update);
@@ -358,7 +358,7 @@ _export bool module_finit() {
 	//unregister_packet_handler(D2GS_RECEIVED, 0x20, d2gs_gold_update);
 
 	//unregister_packet_handler(INTERNAL, 0x9c, internal_trigger_pickit);
-	
+
 	list_clear(&items);
 	list_clear(&valuable);
 	list_clear(&nolog);
@@ -372,6 +372,7 @@ _export bool module_finit() {
 }
 
 _export void * module_thread(void *arg) {
+	(void)arg;
 	return NULL;
 }
 
@@ -379,7 +380,7 @@ _export void module_cleanup() {
 
 	struct iterator it = list_iterator(&items);
 	item_t *i;
-	
+
 	while ((i = iterator_next(&it))) {
 
 		if (!is_blocked(i)) {
@@ -451,8 +452,8 @@ item_t * item_new(d2gs_packet_t *packet, item_t *new) {
 		}
 
 	}
-	
-	if (net_extract_bits(packet->data, 77, 1)) { 
+
+	if (net_extract_bits(packet->data, 77, 1)) {
 		new->quality = 0x00;
 		new->level = 0;
 	} else {
@@ -477,7 +478,7 @@ item_t * item_new(d2gs_packet_t *packet, item_t *new) {
 				}
 			}
 		}
-	
+
 		if (strcmp(new->code, "gld")) { //new->level = net_extract_bits(packet->data, 168, 7);
 			if (new->destination == 0x03) {
 				new->level = net_extract_bits(packet->data, 168, 7);
@@ -544,7 +545,7 @@ bool item_is_valuable(item_t *i, item_t *j) {
 		return FALSE;
 	}
 
-	if (j->amount != (UNSPECIFIED | (UNSPECIFIED << 8) | (UNSPECIFIED << 16) | (UNSPECIFIED << 24)) && i->amount < j->amount) {
+	if ((int)j->amount != (UNSPECIFIED | (UNSPECIFIED << 8) | (UNSPECIFIED << 16) | (UNSPECIFIED << 24)) && i->amount < j->amount) {
 		return FALSE;
 	}
 
@@ -601,7 +602,7 @@ int d2gs_item_action(void *p) {
 	if (i.action == 0x00) { // new item dropped to ground
 
 		ui_console_lock();
-		
+
 		char amount[32];
 		sprintf(amount, "%i ", i.amount);
 		plugin_print("pickit", "%s%s%s%s%s ", i.amount > 1 ? amount : "", i.ethereal ? "ethereal " : "", i.quality == 0x00 ? "" : qualities[i.quality], i.quality == 0x00 ? "" : " ", lookup_item(&i));
@@ -618,7 +619,7 @@ int d2gs_item_action(void *p) {
 	} else if (i.action == 0x04 && i.container == 0x02) { // item added to inventory
 
 		item_t *j = list_find(&items, (comparator_t) item_compare, &i);
-		
+
 		if (j) {
 
 			if (!is_blocked(j)) {
@@ -683,7 +684,7 @@ int d2gs_char_location_update(void *p) {
 }
 
 int gold_compare(item_t *i, int *a) {
-	return (!strcmp(i->code, "gld") && i->amount == *a);
+	return (!strcmp(i->code, "gld") && (int)i->amount == *a);
 }
 
 int d2gs_gold_update(void *p) {

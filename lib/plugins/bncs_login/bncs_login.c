@@ -29,6 +29,7 @@
 #include <settings.h>
 #include <gui.h>
 #include <hash.h>
+#include <internal.h>
 
 #include <util/net.h>
 #include <util/system.h>
@@ -117,7 +118,7 @@ _export bool module_finit() {
 	unregister_packet_handler(BNCS_RECEIVED, 0x3a, bncs_logonresponse_handler);
 	unregister_packet_handler(BNCS_RECEIVED, 0x40, bncs_queryrealms_handler);
 	unregister_packet_handler(BNCS_RECEIVED, 0x3e, bncs_logonrealmex_handler);
-	
+
 	struct iterator it = list_iterator(&setting_cleaners);
 	setting_cleanup_t *sc;
 
@@ -131,6 +132,7 @@ _export bool module_finit() {
 }
 
 _export void * module_thread(void *arg) {
+	(void)arg;
 	return NULL;
 }
 
@@ -172,7 +174,7 @@ int bncs_auth_check_handler(void *p) {
 	case 0x102: {
 		char info[512];
 		net_extract_string(incoming.data, info, 4);
-		
+
 		plugin_error("bncs login", "error: game version must be downgraded (%s)\n", info);
 
 		return FORWARD_PACKET;
@@ -224,9 +226,10 @@ int bncs_auth_check_handler(void *p) {
 }
 
 int bncs_getfiletime_handler(void *p) {
+	(void)p;
 	dword client_token = (dword) system_get_clock_ticks();
 
-	byte pass_hash[20];	
+	byte pass_hash[20];
 	hash_passwd(module_setting("Password")->s_var, client_token, bncs_get_server_token(), pass_hash);
 
 	plugin_print("bncs login", "log on to account %s\n", module_setting("Account")->s_var);
@@ -285,7 +288,7 @@ int bncs_queryrealms_handler(void *p) {
 
 	dword n = net_get_data(incoming.data, 4, dword);
 	int offset = 8;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < n; i++) {
 		offset += 4;

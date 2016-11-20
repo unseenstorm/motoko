@@ -178,7 +178,7 @@ static const unsigned short object_filter[] = {
 };
 
 bool is_valid_object_code(unsigned short code) {
-	int i;
+	unsigned int i;
 	for (i = 0; i < sizeof(object_filter) / sizeof(unsigned short); i++) {
 		if (code == object_filter[i]) return TRUE;
 	}
@@ -350,7 +350,7 @@ void update_tile_data(struct list *data, struct list *tiles, exit_t *exit) {
 }
 
 int level_get_id_from_string(const char *s_level) {
-	int i;
+	unsigned int i;
 	for (i = 0; i < sizeof(levels) / sizeof(level_t); i++) {
 		if (string_compare(levels[i].name, (char *) s_level, FALSE)) return i;
 	}
@@ -358,7 +358,7 @@ int level_get_id_from_string(const char *s_level) {
 }
 
 const char * level_get_string_from_id(int i) {
-	return i >= 0 && i < sizeof(levels) / sizeof(level_t) ? levels[i].name : "(null)";
+	return i >= 0 && (unsigned int)i < sizeof(levels) / sizeof(level_t) ? levels[i].name : "(null)";
 }
 
 void load_tile_data(struct list *data, const char *tilesdir) {
@@ -478,7 +478,7 @@ int tile_compare(tile_t *a, tile_t *b) {
 	return ((a->x == b->x) && (a->y == b->y));
 }
 
-void move_layout_x(room_layout_t *layout, int x) {	
+void move_layout_x(room_layout_t *layout, int x) {
 	layout->width += x;
 	int i, j;
 	/*for (j = 0; j < layout->height; j++) {
@@ -504,7 +504,7 @@ void move_layout_x(room_layout_t *layout, int x) {
 	layout->origin.x -= (layout->size * x);
 }
 
-void move_layout_y(room_layout_t *layout, int y) {	
+void move_layout_y(room_layout_t *layout, int y) {
 	layout->height += y;
 	int i, j;
 	/*for (i = 0; i < layout->width; i++) {
@@ -970,7 +970,7 @@ bool dijkstra(tile_t *source, tile_t *target, struct list *path) {
 	pthread_mutex_unlock(&tiles_m);
 	i = 0;
 	u = NULL;
-	while (i < list_size(&nodes)) {
+	while ((unsigned int)i < list_size(&nodes)) {
 		u = NULL;
 		it = list_iterator(&nodes);
 		while ((v = iterator_next(&it))) {
@@ -1044,11 +1044,11 @@ void teleport(int x, int y) {
 	plugin_print("pathing", "teleporting to %i/%i (%i)\n", x, y, DISTANCE(p, bot.location));
 
 	//swap_right(NULL, 0x36);
-	
+
 	pthread_mutex_lock(&teleport_m);
 
 	d2gs_send(0x0c, "%w %w", x, y);
-	
+
 	msleep(module_setting("CastDelay")->i_var);
 
 	struct timespec ts;
@@ -1101,7 +1101,7 @@ bool dijkstra2(struct list *l, point_t *source, point_t *target, struct list *pa
 	}
 	i = 0;
 	u = NULL;
-	while (i < list_size(&nodes)) {
+	while ((unsigned int)i < list_size(&nodes)) {
 		u = NULL;
 		it = list_iterator(&nodes);
 		while ((v = iterator_next(&it))) {
@@ -1745,7 +1745,7 @@ int d2gs_char_location_update(void *p) {
 		break;
 
 	}
-	
+
 	plugin_debug("pathing", "bot at %i/%i\n", bot.location.x, bot.location.y);
 
 	return FORWARD_PACKET;
@@ -1809,6 +1809,7 @@ int process_incoming_packet(void *p) {
 }
 
 _export void * module_thread(void *arg) {
+	(void)arg;
 	return NULL;
 }
 

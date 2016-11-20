@@ -171,7 +171,8 @@ static size_t d2gs_get_compressed_packet_size(byte *input, size_t *header_size) 
 		return *input - 1;
 	} else {
 		*header_size = 2;
-		return ((*input & 0xF) << 8) + *++input - 2;
+		input++;
+		return ((*(input - 1) & 0xF) << 8) + *input - 2;
 	}
 }
 
@@ -671,6 +672,7 @@ _export dword d2gs_get_hash() {
 }
 
 static void * d2gs_ping_thread(void *arg) {
+	(void)arg;
 	time_t start;
 	time(&start);
 
@@ -807,7 +809,7 @@ void * d2gs_client_engine(d2gs_con_info_t *info) {
 				error("[D2GS] error: failed to process packet\n");
 				errors++;
 			}
-			
+
 			pthread_mutex_lock(&socket_m);
 
 			continue;
