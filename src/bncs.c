@@ -220,7 +220,7 @@ size_t bnftp_download(dword *mpq_filetime, char *mpq_file) {
 
 	net_send(bnftp_socket, packet, 47);
 
-	byte response[39];
+	byte response[setting("Debug")->b_var ? 0xffff : 39];
 
 	if ((int) net_receive(bnftp_socket, response, 39) < 39) {
 		net_disconnect(bnftp_socket);
