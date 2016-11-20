@@ -301,8 +301,6 @@ static const dword mpq_hash_codes[] =
 
 _export bool hash_executable(const char *bin_dir, const char *formula, const char *mpq_file, int *checksum) {
 
-	char *files[] = { "Game.exe", "Bnclient.dll", "D2Client.dll" };
-
 	char form_copy[strlen(formula) + 1];
 	strcpy(form_copy, formula);
 	char file_copy[strlen(mpq_file) + 1];
@@ -341,32 +339,40 @@ _export bool hash_executable(const char *bin_dir, const char *formula, const cha
 		return FALSE;
 	}
 	a ^= mpq_hash_codes[index];
-	int i;
-	for (i = 0; i < 3; i++) {
-		char *file = file_get_absolute_path(bin_dir, files[i]);
-		size_t len = file_get_size(file);
-		if ((int) len < 0) {
-			free(file);
-			return FALSE;
-		}
-		byte *buf = malloc(len);
-		size_t total = file_read(file, buf, len);
-		if ((int) total < 0) {
-			free(buf);
-			free(file);
-			return FALSE;
-		}
-		int j;
-		for (j = 0; j < (int) total; j += sizeof(dword)) {
-			dword s = *(dword *)&buf[j];
-			a = operators[0](a, s);
-			b = operators[1](b, c);
-			c = operators[2](c, a);
-			a = operators[3](a, b);
-		}
+	char *file = file_get_absolute_path(bin_dir, "Game.exe");
+	size_t len = file_get_size(file);
+	if ((int) len < 0) {
+		free(file);
+		return FALSE;
+	}
+	int pad_size = len % 1024;
+	if (pad_size) //not padded
+		pad_size = 1024 - pad_size;
+	byte *buf = malloc(len + pad_size);
+	size_t total = file_read(file, buf, len);
+	if ((int) total < 0) {
 		free(buf);
 		free(file);
+		return FALSE;
 	}
+	if (pad_size) { //let's pad
+		int pad = 0xff;
+		byte *swap = buf + total;
+		total += pad_size;
+		while (pad_size--)
+			*swap++ = pad--;
+	}
+	int j;
+	for (j = 0; j < (int) total; j += sizeof(dword)) {
+		dword s = *(dword *)&buf[j];
+		a = operators[0](a, s);
+		b = operators[1](b, c);
+		c = operators[2](c, a);
+		a = operators[3](a, b);
+	}
+	free(buf);
+	free(file);
 	*checksum = c;
+
 	return TRUE;
 }

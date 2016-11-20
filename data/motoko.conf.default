@@ -1,7 +1,7 @@
 # motoko config file
 
 # Version of Diablo II expected by Battle.net, e.g. 1.13
-VersionByte = 13
+VersionByte = 0x0e
 
 # Hostname of the Battle.net server you want motoko to connect to
 Hostname = europe.battle.net
@@ -12,20 +12,20 @@ BNCSPort = 6112
 # Port D2GS listens on
 D2GSPort = 4000
 
-# Your Diablo II Expansion CD key
-ExpansionKey = AAAAAAAAAAAAAAAA
-
 # Your Diablo II Classic CD key
 ClassicKey = BBBBBBBBBBBBBBBB
 
+# Your Diablo II Expansion CD key
+ExpansionKey = AAAAAAAAAAAAAAAA
+
 # Stats of Game.exe that matches the latest version of Diablo II
-VersionInfo = Game.exe 10/18/11 20:48:14 65536
+VersionInfo = Game.exe 11/19/16 14:20:34 3618792
 
 # Owner of this CD key set which will be submitted to Battle.net
 Owner = motoko
 
-# Path to Diablo II's binaries (Game.exe, Bnclient.dll and D2Client.dll)
-BinaryDir = /path/to/binaries
+# Path to Diablo II's Game.exe binary
+BinaryDir = /home/you/motoko/data
 
 # Disconnect from BNCS after connecting to MCP (yes / no)
 BNCSDisconnect = yes
