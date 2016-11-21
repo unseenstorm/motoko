@@ -187,7 +187,7 @@ dword net_extract_bits(byte *packet, int pos, int len) {
 	dword bits = 0;
 	int i;
 	for (i = 0; i < len; i++) {
-		bits |= BIT(packet, pos + i) << i;
+		bits |= BIT(packet, pos + i) << i; //TODO: int overflow (<<)
     }
 	return bits;
 }

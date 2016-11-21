@@ -656,8 +656,8 @@ int d2gs_char_location_update(void *p) {
 
 		case 0x15: {
 
-		location.x = net_get_data(packet->data, 5, word);
-		location.y = net_get_data(packet->data, 7, word);
+		location.x = net_get_data(packet->data, 5, word); //TODO: 2 byte alignment
+		location.y = net_get_data(packet->data, 7, word); //TODO: 2 byte alignment
 
 		}
 		break;
@@ -706,7 +706,7 @@ int d2gs_gold_update(void *p) {
 		break;
 
 		case 0x1e: {
-			amount = net_get_data(packet->data, 1, word) - gold;
+			amount = net_get_data(packet->data, 1, word) - gold; //TODO: 2 byte alignment
 		}
 		break;
 

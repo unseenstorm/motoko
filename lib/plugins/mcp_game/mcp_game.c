@@ -662,7 +662,7 @@ int mcp_creategame_handler(void *p) {
 
 	mcp_responsed = TRUE;
 
-	dword status = net_get_data(incoming.data, 6, dword);
+	dword status = net_get_data(incoming.data, 6, dword); //TODO: 4 byte alignment
 
 	switch (status) {
 
@@ -711,7 +711,7 @@ int mcp_joingame_handler(void *p) {
 
 	mcp_responsed = TRUE;
 
-	dword status = net_get_data(incoming.data, 14, dword);
+	dword status = net_get_data(incoming.data, 14, dword); //TODO: 4 byte alignment
 
 	switch (status) {
 

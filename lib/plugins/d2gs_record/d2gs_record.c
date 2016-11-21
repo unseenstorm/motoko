@@ -79,15 +79,15 @@ int update_player_variables(void *p) {
 		case 0x59: {
 			if (!player_id) {
 				player_id = net_get_data(packet->data, 0, dword);
-				player_x = net_get_data(packet->data, 21, word);
-				player_y = net_get_data(packet->data, 23, word);
+				player_x = net_get_data(packet->data, 21, word); //TODO: 2 byte alignment
+				player_y = net_get_data(packet->data, 23, word); //TODO: 2 byte alignment
 			}
 		}
 		break;
 
 		case 0x15: { // received packet
-			player_x = net_get_data(packet->data, 5, word);
-			player_y = net_get_data(packet->data, 7, word);
+			player_x = net_get_data(packet->data, 5, word); //TODO: 2 byte alignment
+			player_y = net_get_data(packet->data, 7, word); //TODO: 2 byte alignment
 		}
 		break;
 

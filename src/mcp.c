@@ -314,10 +314,10 @@ void * mcp_client_engine(mcp_con_info_t *info) {
 		}
 
 		case 0x04: {
-			dword status = net_get_data(incoming.data, 14, dword);
+			dword status = net_get_data(incoming.data, 14, dword); //TODO: need 4 byte alignment
 			if (status == 0x00) {
-				dword gs_addr = net_get_data(incoming.data, 6, dword);
-				dword gs_hash = net_get_data(incoming.data, 10, dword);
+				dword gs_addr = net_get_data(incoming.data, 6, dword); //TODO: need 4 byte alignment
+				dword gs_hash = net_get_data(incoming.data, 10, dword); //TODO: need 4 byte alignment
 				word gs_token = net_get_data(incoming.data, 2, word);
 
 				d2gs_con_info_t *info = malloc(sizeof(d2gs_con_info_t));

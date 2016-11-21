@@ -213,7 +213,7 @@ int replay_save_file(const char *path, replay_t *replay, char *output) {
 	clock_gettime(CLOCK_REALTIME, &ts);
 
 	char s_time[24] = "";
-	sprintf(s_time, "%.2d%.2d%.2d%.2d%.2d%.2d%.3hd", tm->tm_mon + 1, tm->tm_mday, 1900 + tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec, (short) ((ts.tv_sec * 1000 + ts.tv_nsec / 1000000) % 1000)); // 22 bytes
+	sprintf(s_time, "%.2d%.2d%.2d%.2d%.2d%.2d%.3hd", tm->tm_mon + 1, tm->tm_mday, 1900 + tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec, (short) ((ts.tv_sec * 1000 + ts.tv_nsec / 1000000) % 1000)); // 22 bytes //TODO: signed integer overflow: 1479744097 * 1000 cannot be represented in type 'long'
 
 	// remove trailing '/'
 	char s_path[UNIX_PATH_MAX];

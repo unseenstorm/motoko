@@ -184,7 +184,7 @@ static bool d2gs_decompress(byte *input, size_t input_size, byte *output, size_t
 		while (input_size > 0 && count >= 8) {
 			count -= 8;
 			input_size--;
-			a = *input++ << count;
+			a = *input++ << count; //TODO: catch the overflow?
 			b |= a;
 		}
 		int index = index_table[b >> 0x18];
@@ -554,7 +554,7 @@ static bool d2gs_process_packet(byte **buf, size_t *len) {
 	}
 
 	n_packets--;
-	*buf = malloc(packet_sizes[index]);
+	*buf = malloc(packet_sizes[index]); //TODO: load of NULL ptr
 	memcpy(*buf, packets[index], packet_sizes[index]);
 	*len = packet_sizes[index];
 	index++;
