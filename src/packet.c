@@ -116,10 +116,10 @@ int invoke_packet_handlers(packet_t type, void *packet) {
 	case INTERNAL:
 		id = INTERNAL_CAST(packet)->id;
 		break;
-
+/*
 	default:
 		return forward;
-
+*/
 	}
 
 	pthread_mutex_lock(&packet_handlers_m);
@@ -176,12 +176,12 @@ int invoke_packet_handlers(packet_t type, void *packet) {
 				memcpy(INTERNAL_CAST(c)->data, INTERNAL_CAST(packet)->data, INTERNAL_CAST(packet)->len - INTERNAL_HEADER_SIZE);
 			}
 			break;
-
+/*
 		default:
 			pthread_mutex_unlock(&packet_handlers_m);
 
 			return forward;
-
+*/
 		}
 
 		forward = (*handler)((void *) c);

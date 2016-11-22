@@ -328,6 +328,7 @@ void ui_init() {
 
 	string_new(&logfile, "motoko.", profile, ".log", "");
 
+/*
 	return;
 
 	//signal(SIGWINCH, resize_handler);
@@ -349,6 +350,7 @@ void ui_init() {
 	}
 
 	curs_set(0);
+*/
 }
 
 void ui_finit() {
@@ -362,10 +364,11 @@ void ui_finit() {
 	if (ui_statistics) {
 		free(ui_statistics);
 	}
-
+/*
 	return;
 
 	endwin();
+*/
 }
 
 bool ui_get_terminal_size(int *x, int *y) {

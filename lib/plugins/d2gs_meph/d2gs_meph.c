@@ -205,8 +205,8 @@ int d2gs_char_location_update(void *p) {
 				bot.location.x = net_get_data(packet->data, 0, word);
 				bot.location.y = net_get_data(packet->data, 2, word);
 			//}
-		}*/
-		break;
+		}
+		break;*/
 
 	}
 
