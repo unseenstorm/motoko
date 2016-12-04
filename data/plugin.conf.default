@@ -5,7 +5,7 @@
 #       these default values might not be useful though
 #
 # Disable: if added to a plugin's settings the according plugin will be enabled/disabled (options: yes, no)
-# 
+#
 # Include: include a given file to parse in this configuration (absolute path or relative to .motoko/profiles/'profile')
 #          this setting can be added at any level (globally, specific to a plugin or even within a nested setting of a plugin configuration)
 #          it can be used to place common settings of different profiles into a single file (e.g., items to pick or a common chicken configuration)
@@ -129,8 +129,30 @@
 	</Item>
 </Plugin>
 
+# plugin chest
+#
+# CastDelay: specifies how long to idle after casting a spell (milliseconds)
+# PrecastSequence: buff sequence that gets executed when leaving town
+#  syntax: single actions are separated by '/', arguments and actions are separated by ':'
+#  options:
+#    switch (): switch weapon slot
+#    self (spell): cast spell at character
+#    left (spell): set left skill to spell and cast at monster
+#    right (spell): set right skill to spell and cast at monster
+# ShopAfterRuns: after the defined number of runs the character will spend time shopping (0 to disable)
+# RepairAfterRuns: after the defined number of runs the character will repair equipment (0 to disable)
+
+<Plugin type=nested>
+	Name = d2gs_chest
+	UseMerc = yes
+	CastDelay = 250
+	PrecastSequence = ""
+	ShopAfterRuns = 2
+	RepairAfterRuns = 0
+</Plugin>
+
 # plugin pes
-# 
+#
 # CastDelay: specifies how long to idle after casting a spell (milliseconds)
 # MaxSequencesPerMonster: upper limit for attacking a monster with the specified sequence
 # PrecastSequence: buff sequence that gets executed when leaving town (syntax as for AttackSequence)
@@ -161,7 +183,7 @@
 </Plugin>
 
 # plugin dclone
-# 
+#
 # GameIdleTime: if hitting a cold IP idle for the specified amount (seconds)
 # HotIPs: list of hot IPs to hunt (last octet, leading '.', separated by ':')
 #

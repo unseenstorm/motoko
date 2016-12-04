@@ -106,6 +106,7 @@ AC_CONFIG_FILES([
 	lib/plugins/d2gs_meph/Makefile
 	lib/plugins/d2gs_pathing/Makefile
 	lib/plugins/d2gs_record/Makefile
+	lib/plugins/d2gs_chest/Makefile
 ])
 
 AC_CONFIG_SUBDIRS([lib/libwardenc])

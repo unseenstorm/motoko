@@ -372,7 +372,7 @@ void ui_finit() {
 }
 
 bool ui_get_terminal_size(int *x, int *y) {
-#if TIOCGSIZE
+#ifdef TIOCGSIZE
 	struct ttysize ts;
 #elif defined(TIOCGWINSZ)
 	struct winsize ts;
@@ -380,7 +380,7 @@ bool ui_get_terminal_size(int *x, int *y) {
 	if(!isatty(STDIN_FILENO)) {
 		return FALSE;
 	}
-#if TIOCGSIZE
+#ifdef TIOCGSIZE
 	if(ioctl(STDIN_FILENO, TIOCGSIZE, &ts) < 0) {
 		return FALSE;
 	}
