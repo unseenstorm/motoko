@@ -84,6 +84,9 @@ dword gold;
 
 pthread_mutex_t items_m;
 
+bool is_picked;
+pthread_mutex_t is_picked_m;
+
 bool routine_scheduled = FALSE;
 
 /* statistics */
@@ -333,11 +336,13 @@ _export bool module_init() {
 
 	//register_packet_handler(INTERNAL, 0x9c, internal_trigger_pickit);
 
-	items  = list_new(item_t);
+	items = list_new(item_t);
 
 	gold = 0;
+	is_picked = FALSE;
 
 	pthread_mutex_init(&items_m, NULL);
+	pthread_mutex_init(&is_picked_m, NULL);
 
 	logitem("  --- NEW SESSION ---\n");
 
@@ -364,6 +369,7 @@ _export bool module_finit() {
 	list_clear(&nolog);
 
 	pthread_mutex_destroy(&items_m);
+	pthread_mutex_destroy(&is_picked_m);
 
 	ui_add_statistics_plugin("pickit", "attempts to pick items: %i\n", n_attempts);
 	ui_add_statistics_plugin("pickit", "picked items: %i (%i%%)\n", n_picked, PERCENT(n_attempts, n_picked));
@@ -638,10 +644,13 @@ int d2gs_item_action(void *p) {
 			}
 
 			pthread_mutex_lock(&items_m);
+			pthread_mutex_lock(&is_picked_m);
 
 			list_remove(&items, j);
+			is_picked = TRUE;
 
 			pthread_mutex_unlock(&items_m);
+			pthread_mutex_unlock(&is_picked_m);
 
 		}
 	}
@@ -723,7 +732,7 @@ int d2gs_gold_update(void *p) {
 	 * this leads to "failed to pick ..." messages in the log
 	 */
 	if (amount > 0) {
-		item_t *i = list_find(&items, (comparator_t) gold_compare, &amount);
+		item_t *i = list_find(&items, (comparator_t) gold_compare, &amount); //plus it checks amount, not id...
 		if (i) {
 
 			if (!is_blocked(i)) {
@@ -736,8 +745,24 @@ int d2gs_gold_update(void *p) {
 			}
 
 			pthread_mutex_lock(&items_m);
+			pthread_mutex_lock(&is_picked_m);
 
 			list_remove(&items, i);
+			is_picked = TRUE;
+
+			pthread_mutex_unlock(&items_m);
+			pthread_mutex_unlock(&is_picked_m);
+		} else {
+        //something went wrong, clean up gold units from item list
+			struct iterator it = list_iterator(&items);
+
+			pthread_mutex_lock(&items_m);
+
+			while ((i = iterator_next(&it))) {
+				if (!strcmp(i->code, "gld")) {
+					list_remove(&items, i);
+				}
+			}
 
 			pthread_mutex_unlock(&items_m);
 		}
@@ -784,11 +809,12 @@ void pickit_routine() {
 
 	plugin_print("pickit", "pickit routine started\n");
 
-	d2gs_send(0x3c, "%w 00 00 ff ff ff ff", 0x36);
-	msleep(300);
+	/* d2gs_send(0x3c, "%w 00 00 ff ff ff ff", 0x36); */
+	/* msleep(300); */
 
 	struct iterator it = list_iterator(&items);
 	item_t *i;
+	int delay;
 
 	pthread_mutex_lock(&items_m);
 
@@ -797,13 +823,14 @@ void pickit_routine() {
 
 		plugin_print("pickit", "pick up %s\n", lookup_item(i));
 
-		d2gs_send(0x0c, "%w %w", i->location.x, i->location.y);
+		/* d2gs_send(0x0c, "%w %w", i->location.x, i->location.y); */
 
-		msleep(500);
+		/* msleep(250); */
 
+		is_picked = FALSE;
 		d2gs_send(0x16,"04 00 00 00 %d 00 00 00 00", i->id);
-
-		msleep(250);
+		for (delay = 500; delay && !is_picked; delay -= 50)
+			msleep(50);
 
 		pthread_mutex_lock(&items_m);
 	}

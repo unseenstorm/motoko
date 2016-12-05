@@ -74,6 +74,7 @@ enum {
 };
 
 struct list belt;
+int belt_size;
 
 potion_t npc_hp, npc_mp;
 
@@ -87,6 +88,7 @@ static struct timespec ping_ts;
 
 int d2gs_char_update(void *);
 int d2gs_belt_update(void *);
+int d2gs_belt_size_update(void *);
 int d2gs_shop_update(void *);
 int d2gs_on_npc_interact(void *);
 int d2gs_on_npc_quit(void *);
@@ -140,6 +142,7 @@ _export bool module_load_config(struct setting_section *s) {
 _export bool module_init() {
 	register_packet_handler(D2GS_RECEIVED, 0x95, d2gs_char_update);
 	register_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_belt_update);
+	register_packet_handler(D2GS_RECEIVED, 0x9d, d2gs_belt_size_update);
 	register_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_shop_update);
 	register_packet_handler(D2GS_SENT, 0x38, d2gs_on_npc_interact);
 	register_packet_handler(D2GS_SENT, 0x30, d2gs_on_npc_quit);
@@ -150,6 +153,7 @@ _export bool module_init() {
 	register_packet_handler(D2GS_RECEIVED, 0x8f, d2gs_on_ping);
 
 	belt = list_new(potion_t);
+	belt_size = 4;
 
 	in_trade = FALSE;
 	npc_id = 0;
@@ -175,6 +179,7 @@ _export bool module_init() {
 _export bool module_finit() {
 	unregister_packet_handler(D2GS_RECEIVED, 0x95, d2gs_char_update);
 	unregister_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_belt_update);
+	unregister_packet_handler(D2GS_RECEIVED, 0x9d, d2gs_belt_size_update);
 	unregister_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_shop_update);
 	unregister_packet_handler(D2GS_SENT, 0x38, d2gs_on_npc_interact);
 	unregister_packet_handler(D2GS_SENT, 0x30, d2gs_on_npc_quit);
@@ -354,13 +359,48 @@ int d2gs_char_update(void *p) {
 	return FORWARD_PACKET;
 }
 
+int d2gs_belt_size_update(void *p) {
+	d2gs_packet_t *packet = D2GS_CAST(p);
+
+	if (net_extract_bits(packet->data, 0, 8) == 0x06) { //-> equip
+		char belt_code[4];
+		*(dword *)belt_code = net_extract_bits(packet->data, 156, 24);
+
+		if (!memcmp(belt_code, "lbl", 3) //sash
+			|| !memcmp(belt_code, "vbl", 3)) { //light belt
+			belt_size = 8;
+			plugin_debug("chicken", "update belt size: %d\n", belt_size);
+		} else if (!memcmp(belt_code, "mbl", 3) //belt
+				   || !memcmp(belt_code, "tbl", 3)) { //heavy belt
+			belt_size = 12;
+			plugin_debug("chicken", "update belt size: %d\n", belt_size);
+		} else if (!memcmp(belt_code, "hbl", 3) //all the other belts
+				 || !memcmp(belt_code, "zlb", 3)
+				 || !memcmp(belt_code, "zvb", 3)
+				 || !memcmp(belt_code, "zmb", 3)
+				 || !memcmp(belt_code, "ztb", 3)
+				 || !memcmp(belt_code, "zhb", 3)
+				 || !memcmp(belt_code, "ulc", 3)
+				 || !memcmp(belt_code, "uvc", 3)
+				 || !memcmp(belt_code, "umc", 3)
+				 || !memcmp(belt_code, "utc", 3)
+				 || !memcmp(belt_code, "uhc", 3)) {
+			belt_size = 16;
+			plugin_debug("chicken", "update belt size: %d\n", belt_size);
+		}
+		//TODO: unequip belt / death ? -> belt_size = 4
+	}
+
+	return FORWARD_PACKET;
+}
+
 int d2gs_belt_update(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	byte action = net_extract_bits(packet->data, 0, 8);
 	dword id = net_extract_bits(packet->data, 24, 32);
 
-	if (action == 0x0e) {
+	if (action == 0x0e) { //->to belt
 		potion_t pot = { .code = { 0 } };
 		*(dword *)pot.code = net_extract_bits(packet->data, 116, 24);
 		pot.id = id;
@@ -368,7 +408,7 @@ int d2gs_belt_update(void *p) {
 		list_add(&belt, &pot);
 
 		plugin_debug("chicken", "add pot %s (%08X) to belt\n", pot.code, id);
-	} else if (action == 0x0f) {
+	} else if (action == 0x0f) { //drink?
 		potion_t *pot = (potion_t *) list_find(&belt, compare_id, (void *) &id);
 		if (pot) {
 			plugin_debug("chicken", "remove pot %s (%08X) from belt\n", pot->code, pot->id);
@@ -399,12 +439,22 @@ int d2gs_shop_update(void *p) {
 		char code[4] = { 0 };
 		*(dword *)code = net_extract_bits(packet->data, 116, 24);
 
+		/*TODO: highest pot
+		char highest_code = "hp4";
+		while (*(highest_code + 2) != '0') {
+
+			*(highest_code + 2)--;
+		}
+		*/
+
 		if (strstr((char *) code, "hp")) {
 			npc_hp.id = id;
+			/* npc_hp.code = code; */
 
 			plugin_debug("chicken", "add pot %s (%08X) to shop\n", code, id);
 		} else if (strstr((char *) code, "mp")) {
 			npc_mp.id = id;
+			/* npc_mp.code = code; */
 
 			plugin_debug("chicken", "add pot %s (%08X) to shop\n", code, id);
 		}
@@ -429,30 +479,41 @@ int d2gs_on_npc_interact(void *p) {
 void restock_potions() {
 	plugin_debug("chicken", "restocking pots\n");
 
-	int i;
+	struct iterator it = list_iterator(&belt);
+	potion_t *pot;
+	int n_hp = 0;
+	int n_mp = 0;
+	/* int n_rp = 0; */ //TODO: handle rejuvs
 
-	for (i = 0; i < hp_pots_used && npc_hp.id && npc_id; i++) {
+	while ((pot = iterator_next(&it))) {
+		if (strstr(pot->code, "hp"))
+			n_hp++;
+		else //if (strstr(pot->code, "mp"))
+			n_mp++;
+		/* else */
+			/* n_rp++; */
+	}
+
+	if (n_hp < belt_size / 2) {
+		plugin_print("chicken",  "restock %i healing pot(s)\n", belt_size / 2 - n_hp);
+		hp_pots_used = 0;
+	}
+	while (n_hp < belt_size / 2 && npc_hp.id && npc_id) {
 		d2gs_send(0x32, "%d %d 00 00 00 00 64 00 00 00", npc_id, npc_hp.id);
 
 		msleep(200);
+		n_hp++;
 	}
 
-	if (i) {
-		plugin_print("chicken",  "restocked %i healing pot(s)\n", i);
-
-		hp_pots_used = 0;
+	if (n_mp < belt_size / 2) {
+		plugin_print("chicken",  "restock %i mana pot(s)\n", belt_size / 2 - n_mp);
+		mp_pots_used = 0;
 	}
-
-	for (i = 0; i < mp_pots_used && npc_mp.id && npc_id; i++) {
+	while (n_mp < belt_size / 2 && npc_mp.id && npc_id) {
 		d2gs_send(0x32, "%d %d 00 00 00 00 64 00 00 00", npc_id, npc_mp.id);
 
 		msleep(200);
-	}
-
-	if (i) {
-		plugin_print("chicken", "restocked %i mana pot(s)\n", i);
-
-		mp_pots_used = 0;
+		n_mp++;
 	}
 }
 

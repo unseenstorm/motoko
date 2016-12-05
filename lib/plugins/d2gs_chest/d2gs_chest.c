@@ -73,7 +73,7 @@ static const int waypoints[][] = {
 */
 
 static const word chest_ids[] = {
-	1, 3, 4, 7, 9, 50, 51, 52, 53, 54, 55, 56, 57, 58, 79, 80, 84, 85, 88, 89, 90, 93, 94, 95, 96, 97, 109, 138, 139, 142, 143, 154, 158, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 178, 182, 185, 186, 187, 188, 204, 207, 208, 209, 210, 211, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223  ,//test
+	1, 3, 4, 7, 9, 50, 51, 52, 53, 54, 55, 56, 57, 58, 79, 80, 84, 85, 88, 89, 90, 93, 94, 95, 96, 97, 109, 138, 139, 142, 143, 154, 158, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 178, 182, 185, 186, 187, 188, 204, 207, 208, 209, 210, 211, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 227, 228, 233, 234, 235, 247, 248, 259, 266, 268, 269, 270, 271, 272, 283, 284, 285, 286, 287, 289, 326, 337, 338, 339, 358, 359, 360, 362, 363, 364, 365, 369, 372, 373, 380, 381, 383, 384, 388, 416, 418, 419, 426, 438, 439, 443, 444, 445, 450, 463, 466, 467, 468, 469, 470, 471, 473, 477, 554, 556  ,//test
 	5, 6, 87, 104, 105, 106, 107, 143, 140, 141, 144, 146, 147, 148, 176, 177,
 	181, 183, 198, 240, 241, 242, 243, 329, 330, 331, 332, 333, 334, 335, 336,
 	354, 355, 356, 371, 387, 389, 390, 391, 397, 405, 406, 407, 413, 420, 424,
@@ -636,7 +636,8 @@ void print_chest_list() {		/* DEBUG */
 
 	printf("DEBUG CHESTS LIST:\n");
 	while ((chest = iterator_next(&it))) {
-		printf("%d: %d/%d (%u)\n", it.index, chest->location.x, chest->location.y, chest->id);
+		printf("%d: %d/%d (id:%u, distance:%d)\n", \
+			   it.index, chest->location.x, chest->location.y, chest->id, DISTANCE(bot.location, chest->location));
 	}
 	printf("\n");
 }
@@ -1228,10 +1229,10 @@ void leave() {
 }
 
 void open_chest(object_t *chest) {
-	plugin_debug("chest", "open chest at %i/%i (%d)\n", chest->location.x, chest->location.y, chest->id);
+	plugin_debug("chest", "open chest at %i/%i (%u)\n", chest->location.x, chest->location.y, chest->id);
 
 	d2gs_send(0x13, "02 00 00 00 %d", chest->id);
-	msleep(200);		/* DEBUG */
+	msleep(300);		/* DEBUG */
 
 	// pickit
 	//internal_send(0x9c, "%s 00", "pickit");
@@ -1261,9 +1262,13 @@ void open_all_chests() {
 
 		}
 		if (closest_chest) {
-			printf("closest: %d/%d (id:%u, distance:%d)\n", closest_chest->location.x, closest_chest->location.y, closest_chest->id, min);
-			teleport_far(closest_chest->location);
-			open_chest(closest_chest);
+			plugin_debug("chest", "closest: %d/%d (id:%u, distance:%d)\n", closest_chest->location.x, closest_chest->location.y, closest_chest->id, min);
+			if (min < 1000) {
+				teleport_far(closest_chest->location);
+				open_chest(closest_chest);
+			} else {
+				plugin_debug("chest", "skipping closest\n");
+			}
 			list_remove(&chests_l, closest_chest);
 		}
 	}
