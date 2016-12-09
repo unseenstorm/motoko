@@ -149,6 +149,7 @@
 	PrecastSequence = ""
 	ShopAfterRuns = 2
 	RepairAfterRuns = 0
+	MinGameTime = 180
 </Plugin>
 
 # plugin pes

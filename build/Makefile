@@ -65,6 +65,7 @@ CONFIG_DIR = tmp
 PLUGIN_DIR = plugins
 O_DIR = tmp
 ROOT_DIR = ..
+INSTALL_DIR = /usr/local/bin
 HERE = $(shell pwd)
 
 DEFINES = 	-D_export="__attribute__((visibility(\"default\")))"	\
@@ -173,6 +174,7 @@ LIBS =	-pthread -lopts -lm -lncurses -ldl -lrt # -lcrypto -lz
 MAKE =		make -j
 RM =		rm -rf
 CP =		cp
+LN =		ln -s
 AR =		ar cru
 RANLIB =	ranlib
 MKDIR =		mkdir -p
@@ -185,7 +187,7 @@ GREEN =	\033[32;01m
 BLUE =	\033[34;01m
 BASIC =	\033[0m
 
-.PHONY: all debug sanitize me_cry clean fclean re
+.PHONY: all debug sanitize me_cry install clean fclean re
 
 all:
 	@$(MAKE) $(NAME) $(FLAGS)
@@ -282,6 +284,9 @@ $(O_DIR):
 	@$(CP) $(ROOT_DIR)/data/motoko.conf.default $(CONFIG_DIR)/motoko/.
 	@$(CP) $(ROOT_DIR)/data/plugin.conf.default $(CONFIG_DIR)/motoko/.
 	@$(CP) $(ROOT_DIR)/data/wrequest.db.default $(CONFIG_DIR)/motoko/.
+
+install:
+	@$(LN) $(HERE)/$(NAME) $(INSTALL_DIR)/$(NAME)
 
 clean:
 	@$(RM) $(O_DIR)

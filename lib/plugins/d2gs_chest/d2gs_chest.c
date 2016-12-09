@@ -55,12 +55,13 @@ typedef void (*cleanup_handler)(void *);
 
 static struct setting module_settings[] = (struct setting []) {
 	SETTING("UseMerc", FALSE, BOOLEAN),
-	SETTING("CastDelay", 0, INTEGER),
+	SETTING("CastDelay", 250, INTEGER),
 	SETTING("ShopAfterRuns", 1, INTEGER),
-	SETTING("RepairAfterRuns", 1, INTEGER)
+	SETTING("RepairAfterRuns", 1, INTEGER),
+	SETTING("MinGameTime", 180, INTEGER)
 };
 
-static struct list module_settings_list = LIST(module_settings, struct setting, 4);
+static struct list module_settings_list = LIST(module_settings, struct setting, 5);
 
 /*
 static const int waypoints[][] = {
@@ -72,16 +73,109 @@ static const int waypoints[][] = {
 };
 */
 
-static const word chest_ids[] = {
-	1, 3, 4, 7, 9, 50, 51, 52, 53, 54, 55, 56, 57, 58, 79, 80, 84, 85, 88, 89, 90, 93, 94, 95, 96, 97, 109, 138, 139, 142, 143, 154, 158, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 178, 182, 185, 186, 187, 188, 204, 207, 208, 209, 210, 211, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 227, 228, 233, 234, 235, 247, 248, 259, 266, 268, 269, 270, 271, 272, 283, 284, 285, 286, 287, 289, 326, 337, 338, 339, 358, 359, 360, 362, 363, 364, 365, 369, 372, 373, 380, 381, 383, 384, 388, 416, 418, 419, 426, 438, 439, 443, 444, 445, 450, 463, 466, 467, 468, 469, 470, 471, 473, 477, 554, 556  ,//test
+static const word chest_preset_ids[] = {
+	1, 3, 4, 7, 9, 50, 51, 52, 53, 54, 55, 56, 57, 58, 79, 80, 84, 85, 88, 89, 90, 93, 94, 95, 96, 97, 109, 138, 139, 142, 143, 154, 158, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 178, 182, 185, 186, 187, 188, 204, 207, 208, 209, 210, 211, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 227, 228, 233, 234, 235, 244, 247, 248, 259, 266, 268, 269, 270, 271, 272, 283, 284, 285, 286, 287, 289, 326, 337, 338, 339, 358, 359, 360, 362, 363, 364, 365, 369, 372, 373, 380, 381, 383, 384, 388, 416, 418, 419, 426, 438, 439, 443, 444, 445, 450, 463, 466, 467, 468, 469, 470, 471, 473, 477, 554, 556  ,//test
 	5, 6, 87, 104, 105, 106, 107, 143, 140, 141, 144, 146, 147, 148, 176, 177,
 	181, 183, 198, 240, 241, 242, 243, 329, 330, 331, 332, 333, 334, 335, 336,
 	354, 355, 356, 371, 387, 389, 390, 391, 397, 405, 406, 407, 413, 420, 424,
 	425, 430, 431, 432, 433, 454, 455, 501, 502, 504, 505, 580, 581, 0
 };
 
-#define WP_LOWERKURAST 0x4f
+#define WP_LUTGHOLEIN   0x28
+#define WP_KURASTDOCKS  0x4b
+#define WP_LOWERKURAST  0x4f
+#define WP_KURASTBAZAAR 0x50
+#define WP_UPPERKURAST  0x51
+
+/* 51 [BYTE Object Type] [DWORD Object Id]  [WORD Object Code] [WORD X] [WORD Y] [BYTE State] [BYTE Interaction Type] */
+#define WP_ID_ACT1_TOWN 0x77
+#define WP_ID_ACT2_TOWN 0x9c
 #define WP_ID_ACT3_TOWN 0xed
+
+
+typedef enum {
+	VOID = 0,
+	WP,
+	TP,
+	ORMUS,
+	FARA,
+	LYSANDER,
+	GREIZ
+} e_town_move;
+
+#define town_move(where) if (!_town_move(where)) return FALSE
+#define walk_straight(x, y) if (!_walk_straight(x, y)) return FALSE
+#define moveto(x, y) if (!_moveto(x, y)) return FALSE
+#define waypoint(area) if (!_waypoint(area)) return FALSE
+#define townportal() if (!_townportal()) return FALSE
+
+#define ACT3_SPAWN_NODE_X    5132
+#define ACT3_SPAWN_NODE_Y    5168
+
+#define ACT3_WP_SPOT_X       5152
+#define ACT3_WP_SPOT_Y       5052
+
+#define ACT3_TP_SPOT_X       5154
+#define ACT3_TP_SPOT_Y       5067
+
+#define ORMUS_NODE_X         5152
+#define ORMUS_NODE_Y         5094
+
+#define ORMUS_SPOT_X         5132
+#define ORMUS_SPOT_Y         5094
+
+#define ACT2_WP_SPOT_X       5068
+#define ACT2_WP_SPOT_Y       5090
+
+#define LYSANDER_SPOT_X      5115
+#define LYSANDER_SPOT_Y      5104
+
+#define FARA_SPOT_X          5115
+#define FARA_SPOT_Y          5083
+
+#define ACT2_CENTRAL_NODE_X  5115
+#define ACT2_CENTRAL_NODE_Y  5097
+
+#define GREIZ_NODE_X         5068
+#define GREIZ_NODE_Y         5055
+
+#define GREIZ_SPOT_X         5042
+#define GREIZ_SPOT_Y         5055
+
+#define ACT2_SPAWN_NODE1_X   5125
+#define ACT2_SPAWN_NODE1_Y   5175
+
+#define ACT2_SPAWN_NODE2_X   5125
+#define ACT2_SPAWN_NODE2_Y   5114
+
+static e_town_move g_previous_dest = 0;
+
+static bool in_town = TRUE;
+
+typedef enum {
+	NEUTRAL = 0,
+	OPERATING = 1,
+	OPENEDED = 2,
+	SPECIAL1 = 3,
+	SPECIAL2 = 4,
+	SPECIAL3 = 5,
+	SPECIAL4 = 6,
+	SPECIAL5 = 7
+} e_chest_mode;
+
+typedef enum { // ->interaction type (last byte) */
+	GENERAL_OBJECT = 0x00,
+	REFILING_SHRINE = 0x02,
+	HEALTH_SHRINE = 0x02,
+	MANA_SHRINE = 0x03,
+	TRAPPED_CHEST = 0x05,
+	MONSTER_CHEST = 0x08, //not monster-shrine :p
+	POISON_RES_SHRINE = 0x0b,
+	SKILL_SHRINE = 0x0c,
+	MANA_RECHARGE_SHRINE = 0x0d,
+	TOWN_PORTAL = 0x4b,
+	LOCKED = 0x80
+} e_chest_interact_type;
 
 #define module_setting(name) ((struct setting *)list_find(&module_settings_list, (comparator_t) compare_setting, name))
 
@@ -106,6 +200,13 @@ typedef struct {
 	unsigned long long int mods;
 } npc_t;
 
+typedef struct {
+	object_t object;
+	word preset_id;
+	bool is_locked;
+	bool is_opened;
+} chest_t;
+
 #define N_NPC_MOD 43
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
@@ -114,9 +215,10 @@ typedef struct {
 
 #define DISTANCE(a, b) ((int) sqrt((double) (SQUARE((a).x - (b).x) + SQUARE((a).y - (b).y))))
 
+#define MIN_WALKING_DISTANCE  1
 #define MAX_WALKING_DISTANCE  35
-#define MAX_TELEPORT_DISTANCE 45
 #define MIN_TELEPORT_DISTANCE 5
+#define MAX_TELEPORT_DISTANCE 45
 
 #define object_clear(o) memset(&(o), 0, sizeof(object_t))
 
@@ -626,26 +728,38 @@ int d2gs_assign_npc(void *p) {
 	return FORWARD_PACKET;
 }
 
-int object_compare_id(object_t *a, object_t *b) {
-	return a->id == b->id;
+int chest_compare_id(chest_t *a, chest_t *b) {
+	return a->object.id == b->object.id;
+}
+
+void print_chest(chest_t *chest) {
+	plugin_debug("chest", "chest at:%d/%d (d=%d), id:%u, preset_id:%d, opened:%d, locked:%d\n", \
+				 chest->object.location.x, chest->object.location.y,	\
+				 DISTANCE(bot.location, chest->object.location),		\
+				 chest->object.id, chest->preset_id, chest->is_opened, chest->is_locked);
 }
 
 void print_chest_list() {		/* DEBUG */
 	struct iterator it = list_iterator(&chests_l);
-	object_t *chest;
+	chest_t *chest;
 
-	printf("DEBUG CHESTS LIST:\n");
+	plugin_debug("chest", "chests_l list:\n");
 	while ((chest = iterator_next(&it))) {
-		printf("%d: %d/%d (id:%u, distance:%d)\n", \
-			   it.index, chest->location.x, chest->location.y, chest->id, DISTANCE(bot.location, chest->location));
+		printf("DEBUG: %d: ", it.index);
+		print_chest(chest);
 	}
 	printf("\n");
 }
 
-object_t * chest_new(d2gs_packet_t *packet, object_t *new) {
-	new->id = net_get_data(packet->data, 1, dword);
-	new->location.x = net_get_data(packet->data, 7, word);
-	new->location.y = net_get_data(packet->data, 9, word);
+chest_t * chest_new(d2gs_packet_t *packet, chest_t *new) {
+	new->is_opened = !(net_get_data(packet->data, 11, byte) == NEUTRAL);
+	new->is_locked = !!(net_get_data(packet->data, 12, byte) == LOCKED);
+	new->preset_id = net_get_data(packet->data, 5, word);
+	new->object.id = net_get_data(packet->data, 1, dword);
+	new->object.location.x = net_get_data(packet->data, 7, word);
+	new->object.location.y = net_get_data(packet->data, 9, word);
+
+	/* printf("ZBOUB:mode:%x, type:%x\n", net_get_data(packet->data, 11, byte), net_get_data(packet->data, 12, byte));			 /\* DEBUG *\/ */
 
 	return new;
 }
@@ -653,13 +767,15 @@ object_t * chest_new(d2gs_packet_t *packet, object_t *new) {
 int d2gs_assign_chest(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
-	object_t new;
+	chest_t new;
 	chest_new(packet, &new);
 
 	pthread_mutex_lock(&chests_m);
 
-	if (!list_find(&chests_l, (comparator_t) object_compare_id, &new)) {
+	if (!list_find(&chests_l, (comparator_t) chest_compare_id, &new)) {
 		list_add(&chests_l, &new);
+		/* plugin_debug("chest", "detected chest at %i/%i (%d)\n",			\ */
+					 /* net_get_data(packet->data, 7, word), net_get_data(packet->data, 9, word), chest_preset_ids[i]); */
 	}
 
 	pthread_mutex_unlock(&chests_m);
@@ -816,10 +932,13 @@ int d2gs_char_location_update(void *p) {
 
 	}
 
-	plugin_debug("chest", "bot update (%02X): %i/%i\n", packet->id, bot.location.x, bot.location.y);
+	/* plugin_debug("chest", "bot update (%02X): %i/%i\n", packet->id, bot.location.x, bot.location.y); */
 
 	return FORWARD_PACKET;
 }
+
+#define tile_contains(tx, ty, ox, oy) ((ox >= tx * 5) && (ox < (tx + (t)->size) * 5) && \
+									   (oy >= ty * 5) && (oy < (ty + (t)->size) * 5))
 
 int process_incoming_packet(void *p) {
 	d2gs_packet_t *packet = (d2gs_packet_t *) p;
@@ -836,7 +955,14 @@ int process_incoming_packet(void *p) {
 		break;
 	}
 
-	case 0x0c: {
+	/* case 0x07: { */
+	/* 	word x = net_get_data(packet->data, 0, word); */
+	/* 	word y = net_get_data(packet->data, 2, word); */
+	/* 	byte area = net_get_data(packet->data, 4, byte); */
+	/* 	break; */
+	/* } */
+
+		case 0x0c: {
 		d2gs_update_npc(packet);
 		break;
 	}
@@ -878,24 +1004,26 @@ int process_incoming_packet(void *p) {
 
 	case 0x51: {
 		if (net_get_data(packet->data, 0, byte) == 0x02) {
-			if (net_get_data(packet->data, 5, word) == WP_ID_ACT3_TOWN) { //TODO: 2 byte alignment
+			if (net_get_data(packet->data, 5, word) == WP_ID_ACT1_TOWN \
+				|| net_get_data(packet->data, 5, word) == WP_ID_ACT2_TOWN \
+				|| net_get_data(packet->data, 5, word) == WP_ID_ACT3_TOWN) { //TODO: 2 byte alignment
 				wp.id = net_get_data(packet->data, 1, dword);
 				wp.location.x = net_get_data(packet->data, 7, word);
 				wp.location.y = net_get_data(packet->data, 9, word);
 
 				plugin_debug("chest", "detected waypoint at %i/%i\n", wp.location.x, wp.location.y);
-			} else if (!net_get_data(packet->data, 11, word)) { //"neutral" (not opened)
+			} else if (net_get_data(packet->data, 11, byte) == NEUTRAL) {
 				int i = 0;
 
-				while (chest_ids[i] && net_get_data(packet->data, 5, word) != chest_ids[i])
+				while (chest_preset_ids[i] && net_get_data(packet->data, 5, word) != chest_preset_ids[i])
 					i++;
-				if (chest_ids[i])
-				{
-					plugin_debug("chest", "detected chest at %i/%i (%d)\n", \
-								 net_get_data(packet->data, 7, word), net_get_data(packet->data, 9, word), chest_ids[i]);
+				if (chest_preset_ids[i]) {
 					d2gs_assign_chest(packet);
 				}
 			}
+			/* else { */
+			/* 	plugin_debug("chest", "chest was not neutral: mode:%d, type:%d\n", net_get_data(packet->data, 11, byte), net_get_data(packet->data, 12, byte)); /\* DEBUG *\/ */
+			/* } */
 		}
 		break;
 	}
@@ -942,8 +1070,9 @@ int process_incoming_packet(void *p) {
 	}
 
 	case 0x82: {
-		if (net_get_data(packet->data, 0, dword) == bot.id) {
+		if (net_get_data(packet->data, 0, dword) == bot.id && !tp.id) {
 			tp.id = net_get_data(packet->data, 20, dword);
+
 
 			pthread_mutex_lock(&townportal_interact_mutex);
 			pthread_cond_signal(&townportal_interact_cv);
@@ -991,13 +1120,19 @@ bool _moveto(int x, int y) {
 
 	int d = DISTANCE(bot.location, p);
 
+	int delay = 2000; //ugly hack to wait bot.location update
+	while (d > MAX_WALKING_DISTANCE && delay) {
+		msleep(100);
+		delay -= 100;
+		d = DISTANCE(bot.location, p);
+	}
+
 	if (d > MAX_WALKING_DISTANCE) {
 		plugin_print("chest", "got stuck trying to move to %i/%i (%i)\n", p.x, p.y, d);
 
 		return FALSE;
 	}
 
-	plugin_print("chest", "moving to %i/%i\n", (word) p.x, (word) p.y);
 
 	/*
 	 * sleeping can lead to a problem:
@@ -1005,7 +1140,6 @@ bool _moveto(int x, int y) {
 	 * C -> S 0x03 | C-> S 0x69 | msleep()
 	 */
 
-	int t = d * 80;
 
 	//int t_s = t / 1000;
 	//int t_ns = (t - (t_s * 1000)) * 1000 * 1000;
@@ -1015,106 +1149,39 @@ bool _moveto(int x, int y) {
 	//ts.tv_sec += t_s;
 	//ts.tv_nsec += t_ns;
 
-	d2gs_send(0x03, "%w %w", (word) p.x, (word) p.y);
+	int t;
+	int retry = 0;
+	do {
+		plugin_print("chest", "moving to %i/%i (retry:%d)\n", (word) p.x, (word) p.y, retry);
+		d2gs_send(0x03, "%w %w", (word) p.x, (word) p.y);
+
+		retry++;
+
+		t = d * 50;
+		/* plugin_debug("chest", "sleeping for %ims\n", t); */
+
+		msleep(t > 2000 ? 2000 : t);
+
+		d2gs_send(0x4b, "00 00 00 00 %d", bot.id);
+
+		delay = 2000; //ugly hack to wait bot.location update
+		do {
+			msleep(100);
+			delay -= 100;
+			d = DISTANCE(bot.location, p);
+		} while (d > 10 && delay);
+	} while (retry < 3 && d > 10);
 
 	//pthread_cond_timedwait(&game_exit_cv, &game_exit_m, &ts);
 
-	plugin_debug("chest", "sleeping for %ims\n", t);
-
-	msleep(t > 3000 ? 3000 : t);
 
 	//end:
 	//pthread_cleanup_pop(1);
 
-	return TRUE;
+	return d <= 10;
 }
 
-bool _town_move(char *where) {
-	point_t spawn_wp_act1[] = {
-		{1, 2},
-		{0, 0}
-	};
-	point_t ormus_hratli[] = {
-		{1, 2},
-		{0, 0}
-	};
-	point_t hratli_ormus[] = {
-		{1, 2},
-		{0, 0}
-	};
-	point_t ormus_asheara[] = {
-		{1, 2},
-		{0, 0}
-	};
-	point_t asheara_ormus[] = {
-		{1, 2},
-		{0, 0}
-	};
-	point_t spawn_ormus[] = {
-		{5132, 5168},
-		{5132, 5148},
-		{5132, 5128},
-		{5132, 5108},
-		{5132, 5094},
-		{0, 0}
-	};
-	point_t ormus_wp[] = {
-		{5152, 5094},
-		{5152, 5074},
-		{5152, 5052},
-		{0, 0}
-	};
-	point_t wp_ormus[] = {
-		{5152, 5074},
-		{5152, 5094},
-		{5132, 5094},
-		{0, 0}
-	};
-
-	point_t *paths[] = {
-		spawn_wp_act1,
-		ormus_hratli,
-		hratli_ormus,
-		ormus_asheara,
-		asheara_ormus,
-		spawn_ormus,
-		wp_ormus,
-		ormus_wp,
-		NULL
-	};
-
-	char *path_names[] = {
-		"spawn_wp_act1",
-		"ormus_hratli",
-		"hratli_ormus",
-		"ormus_asheara",
-		"asheara_ormus",
-		"spawn_ormus",
-		"wp_ormus",
-		"ormus_wp",
-		NULL
-	};
-
-	int i = 0;
-	while (path_names[i] && strcmp(where, path_names[i]))
-		i++;
-	if (!path_names[i])
-		return FALSE;
-
-	point_t *path = paths[i];
-	while ((*path).x && _moveto((*path).x, (*path).y))
-		path++;
-
-	return !(*path).x;
-}
-
-#define moveto(x, y) if (!_moveto(x, y)) goto stuck
-
-#define town_move(x) if (!_town_move(x)) goto stuck
-
-#define waypoint(x) if (!_waypoint(x)) goto stuck
-
-void teleport(int x, int y) {
+bool teleport(int x, int y) {
 	plugin_print("chest", "teleporting to %i/%i\n", x, y);
 
 	swap_right(NULL, 0x36);
@@ -1122,11 +1189,19 @@ void teleport(int x, int y) {
 	d2gs_send(0x0c, "%w %w", x, y);
 
 	msleep(module_setting("CastDelay")->i_var);
+
+	return TRUE;
 }
 
-void teleport_far(point_t p) { //TODO: adress
-	if (DISTANCE(bot.location, p) > MAX_TELEPORT_DISTANCE) {
-		int n_nodes = DISTANCE(bot.location, p) / MAX_TELEPORT_DISTANCE + 1;
+bool split_path(int x, int y, int min_range, int max_range, bool (*move_fun)(int, int)) {
+	point_t p = {x, y};
+
+	if (DISTANCE(bot.location, p) < min_range) {
+		return TRUE;
+	}
+
+	if (DISTANCE(bot.location, p) > max_range) {
+		int n_nodes = DISTANCE(bot.location, p) / max_range + 1;
 
 		int inc_x = (p.x - bot.location.x) / n_nodes;
 		int inc_y = (p.y - bot.location.y) / n_nodes;
@@ -1138,12 +1213,199 @@ void teleport_far(point_t p) { //TODO: adress
 		for (i = 0; i <= n_nodes - 1; i++) {
 			target_x += inc_x;
 			target_y += inc_y;
-			teleport(target_x, target_y);
+			if (!move_fun(target_x, target_y)) {
+				return FALSE;
+			}
 		}
+	} else if (!move_fun(x, y)) {
+		return FALSE;
 	}
 
-	if (DISTANCE(bot.location, p) > MIN_TELEPORT_DISTANCE)
-		teleport(p.x, p.y);
+	return split_path(x, y, min_range, max_range, move_fun);
+}
+
+bool teleport_straight(int x, int y) {
+	plugin_debug("chest", "teleporting straight to %i/%i\n", x, y);
+
+	return split_path(x, y, MIN_TELEPORT_DISTANCE, MAX_TELEPORT_DISTANCE, teleport);
+}
+
+bool _walk_straight(int x, int y) {
+	plugin_debug("chest", "walking straight to %i/%i\n", x, y);
+
+	return split_path(x, y, MIN_WALKING_DISTANCE, MAX_WALKING_DISTANCE / 2, _moveto);
+}
+
+bool _waypoint(dword area) {
+	if (!wp.id)
+		return FALSE;
+
+	d2gs_send(0x13, "02 00 00 00 %d", wp.id);
+
+	msleep(300);
+
+	d2gs_send(0x49, "%d %d", wp.id, area);
+
+	if (merc.id) {
+		msleep(300);
+
+		d2gs_send(0x4b, "01 00 00 00 %d", merc.id);
+	}
+
+	if (area != WP_LUTGHOLEIN && \
+		area != WP_LUTGHOLEIN) {
+		in_town = FALSE;
+	}
+
+	msleep(500);
+
+	plugin_print("chest", "took waypoint %02X\n", area);
+
+	return TRUE;
+}
+
+bool _town_move(e_town_move where) {
+	e_town_move previous_dest = g_previous_dest;
+	g_previous_dest = where;
+
+	switch (where) {
+		case WP:
+			if (act == 1) {
+				plugin_debug("chest", "town_move to WP1 (act:%d bot:%d,%d to:%d/%d)\n", \
+							 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+				sleep(2);
+				walk_straight(wp.location.x, wp.location.y);
+			} else if (act == 2) {
+				plugin_debug("chest", "town_move to WP2 (act:%d bot:%d,%d to:%d/%d)\n", \
+							 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+				if (previous_dest == GREIZ) {
+					walk_straight(GREIZ_NODE_X, GREIZ_NODE_Y);
+				} else if (previous_dest) {
+					walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+				} else {
+					walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
+					walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
+					walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+				}
+				walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
+			} else if (act == 3) {
+				plugin_debug("chest", "town_move to WP3 (act:%d bot:%d,%d to:%d/%d)\n", \
+							 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+				if (previous_dest) {
+					walk_straight(ORMUS_NODE_X, ORMUS_NODE_Y);
+				}
+				walk_straight(ACT3_WP_SPOT_X, ACT3_WP_SPOT_Y);
+			}
+			break;
+
+		case TP:
+			if (act != 3) {
+				town_move(WP);
+				waypoint(WP_KURASTDOCKS);
+				act = 3;
+				msleep(500);
+			}
+			plugin_debug("chest", "town_move to TP (act:%d bot:%d,%d to:%d/%d)\n", \
+						 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+			if (!previous_dest) {
+				walk_straight(ACT3_SPAWN_NODE_X, ACT3_SPAWN_NODE_Y);
+			} else if (previous_dest == ORMUS) {
+				walk_straight(ORMUS_NODE_X, ORMUS_NODE_Y);
+			}
+			walk_straight(ACT3_TP_SPOT_X, ACT3_TP_SPOT_Y);
+			break;
+
+		case ORMUS:
+			if (act != 3) {
+				town_move(WP);
+				waypoint(WP_KURASTDOCKS);
+				act = 3;
+				msleep(500);
+			}
+			plugin_debug("chest", "town_move to ORMUS (act:%d bot:%d,%d to:%d/%d)\n", \
+						 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+			if (!previous_dest) {
+				walk_straight(ACT3_SPAWN_NODE_X, ACT3_SPAWN_NODE_Y);
+			} else {
+				walk_straight(ORMUS_NODE_X, ORMUS_NODE_Y);
+			}
+			walk_straight(ORMUS_SPOT_X, ORMUS_SPOT_Y);
+			break;
+
+		case FARA:
+			if (act != 2) {
+				town_move(WP);
+				waypoint(WP_LUTGHOLEIN);
+				act = 2;
+				msleep(500);
+			}
+			plugin_debug("chest", "town_move to FARA (act:%d bot:%d,%d to:%d/%d)\n", \
+						 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+			if (!previous_dest) {
+				walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
+				walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
+				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+			} else if (previous_dest == WP) {
+				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+			} else if (previous_dest == GREIZ) {
+				walk_straight(GREIZ_NODE_X, GREIZ_NODE_Y);
+				walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
+				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+			}
+			walk_straight(FARA_SPOT_X, FARA_SPOT_Y);
+			break;
+
+		case LYSANDER:
+			if (act != 2) {
+				town_move(WP);
+				waypoint(WP_LUTGHOLEIN);
+				act = 2;
+				msleep(500);
+			}
+			plugin_debug("chest", "town_move to LYSANDER (act:%d bot:%d,%d to:%d/%d)\n", \
+						 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+			if (!previous_dest) {
+				walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
+				walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
+				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+			} else if (previous_dest == WP) {
+				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+			} else if (previous_dest == GREIZ) {
+				walk_straight(GREIZ_NODE_X, GREIZ_NODE_Y);
+				walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
+				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+			}
+			walk_straight(LYSANDER_SPOT_X, LYSANDER_SPOT_Y);
+			break;
+
+		case GREIZ:
+			if (act != 2) {
+				town_move(WP);
+				waypoint(WP_LUTGHOLEIN);
+				act = 2;
+				msleep(500);
+			}
+			plugin_debug("chest", "town_move to GREIZ (act:%d bot:%d,%d to:%d/%d)\n", \
+						 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+			if (!previous_dest) {
+				walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
+				walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
+				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+				walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
+			} else if (previous_dest == FARA || previous_dest == LYSANDER) {
+				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+				walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
+			}
+			walk_straight(GREIZ_NODE_X, GREIZ_NODE_Y);
+			walk_straight(GREIZ_SPOT_X, GREIZ_SPOT_Y);
+			break;
+
+		default:
+			plugin_error("chest", "town_move: destination '%d' unknown\n", where);
+			return FALSE;
+	}
+
+	return TRUE;
 }
 
 void precast() {
@@ -1157,10 +1419,16 @@ void precast() {
 	}
 }
 
-bool townportal() {
+bool _townportal() {
 	int s;
 
-	d2gs_send(0x3c, "%d ff ff ff ff", 0xdc);
+	if (in_town) {
+		plugin_error("chest", "can't tp from town\n");
+
+		return FALSE;
+	}
+
+	d2gs_send(0x3c, "%d ff ff ff ff", 0xdc); //select skill tp... TODO: use book
 
 	msleep(400);
 
@@ -1183,43 +1451,30 @@ bool townportal() {
 	else {
 		d2gs_send(0x13, "02 00 00 00 %d", tp.id);
 
-		msleep(400);
-
 		if (merc.id) {
-			d2gs_send(0x4b, "01 00 00 00 %d", merc.id);
+			msleep(300);
 
-			msleep(100);
+			d2gs_send(0x4b, "01 00 00 00 %d", merc.id);
 		}
 
 		plugin_print("chest", "took townportal\n");
+
+		in_town = TRUE;
+
+		msleep(400);
+
+		/* if (act == 3) { //eheh :p */
+		/* 	bot.location.x = 5153; */
+		/* 	bot.location.y = 5067; */
+		/* } */
+        d2gs_send(0x4b, "00 00 00 00 %d", bot.id);
+		msleep(200);
+		tp.id = 0;
 	}
 
 	pthread_cleanup_pop(1);
 
 	return s ? FALSE : TRUE;
-}
-
-bool _waypoint(dword area) {
-	if (!wp.id)
-		return FALSE;
-
-	d2gs_send(0x13, "02 00 00 00 %d", wp.id);
-
-	msleep(300);
-
-	d2gs_send(0x49, "%d %d", wp.id, area);
-
-	if (merc.id) {
-		msleep(300);
-
-		d2gs_send(0x4b, "01 00 00 00 %d", merc.id);
-	}
-
-	msleep(500);
-
-	plugin_print("chest", "took waypoint %02X\n", area);
-
-	return TRUE;
 }
 
 void leave() {
@@ -1228,55 +1483,144 @@ void leave() {
 	plugin_print("chest", "leaving game\n");
 }
 
-void open_chest(object_t *chest) {
-	plugin_debug("chest", "open chest at %i/%i (%u)\n", chest->location.x, chest->location.y, chest->id);
+void open_chest(chest_t *chest) {
+	plugin_debug("chest", "open chest at %i/%i (%u)\n", chest->object.location.x, chest->object.location.y, chest->object.id);
 
-	d2gs_send(0x13, "02 00 00 00 %d", chest->id);
-	msleep(300);		/* DEBUG */
+	/* d2gs_send(0x4b, "00 00 00 00 %d", bot.id); */
+	/* msleep(200); */
+
+	d2gs_send(0x13, "02 00 00 00 %d", chest->object.id);
+	//TODO: handle keys / locked chests
+
+	msleep(400); //TODO: increase delay if "long" chest? and see if this is enough for the normal ones
 
 	// pickit
 	//internal_send(0x9c, "%s 00", "pickit");
 	execute_module_schedule(MODULE_D2GS);
 }
 
-void open_all_chests() {
+chest_t * get_closest_chest() {
 	struct iterator it;
-	object_t *current_chest;
-	object_t *closest_chest;
-	int min;
+	chest_t *current_chest;
+	chest_t *closest_chest;
+	int min_dist;
 	int tmp_dist;
 
-	plugin_debug("chest", "open	all chests around:\n");
-
-	while (chests_l.len) {
-		print_chest_list();
-		it = list_iterator(&chests_l);
-		closest_chest = NULL;
-		min = 0xffff;
-		while ((current_chest = iterator_next(&it))) {
-			tmp_dist = DISTANCE(current_chest->location, bot.location);
-			if (tmp_dist < min) {
-				min = tmp_dist;
+	closest_chest = NULL;
+	min_dist = 0xffff;
+	it = list_iterator(&chests_l);
+	while ((current_chest = iterator_next(&it))) {
+		if (!current_chest->is_opened) {
+			tmp_dist = DISTANCE(current_chest->object.location, bot.location);
+			if (tmp_dist < min_dist && tmp_dist < 1000) {
+				min_dist = tmp_dist;
 				closest_chest = current_chest;
 			}
-
-		}
-		if (closest_chest) {
-			plugin_debug("chest", "closest: %d/%d (id:%u, distance:%d)\n", closest_chest->location.x, closest_chest->location.y, closest_chest->id, min);
-			if (min < 1000) {
-				teleport_far(closest_chest->location);
-				open_chest(closest_chest);
-			} else {
-				plugin_debug("chest", "skipping closest\n");
-			}
-			list_remove(&chests_l, closest_chest);
 		}
 	}
+
+	return closest_chest;
+}
+
+void open_all_chests() {
+	chest_t *closest_chest;
+	chest_t chest;
+
+	plugin_debug("chest", "open all chests around\n");
+
+	chest.is_opened = TRUE;
+	while (TRUE) {
+		pthread_mutex_lock(&chests_m);
+
+		/* print_chest_list();		/\* DEBUG *\/ */
+		if ((closest_chest = get_closest_chest())) {
+			memcpy(&chest, closest_chest, sizeof(chest_t));
+			list_remove(&chests_l, closest_chest);
+		}
+
+		pthread_mutex_unlock(&chests_m);
+
+		if (chest.is_opened) {
+			break ;
+		}
+
+		print_chest(&chest); /* DEBUG */
+
+		teleport_straight(chest.object.location.x, chest.object.location.y);
+		open_chest(&chest);
+		chest.is_opened = TRUE;
+	}
+}
+
+bool main_script() {
+	if (act < 1 || act > 3) {
+		plugin_error("chest", "can't start from act %i\n", act);
+		return FALSE;
+	}
+
+	plugin_print("chest", "running town chores...\n");
+
+	town_move(ORMUS);
+	npc_shop("Ormus");
+
+	// move to lysander and buy keys
+	/* if (module_setting("RepairAfterRuns")->i_var && !(runs % module_setting("RepairAfterRuns")->i_var)) { */
+	/* 	town_move(LYSANDER); */
+	/* 	npc_key("Lysander"); */
+	/* } */
+
+	// move to fara and repair equipment
+	/* if (module_setting("RepairAfterRuns")->i_var && !(runs % module_setting("RepairAfterRuns")->i_var)) { */
+	/* 	town_move(FARA); */
+	/* 	npc_repair("Fara"); */
+	/* } */
+
+	/* // resurrect merc */
+	/* if (module_setting("UseMerc")->b_var && !merc.id) { */
+	/* 	merc_rez++; */
+
+	/* 	town_move(GREIZ); */
+	/* 	npc_merc("Greiz"); */
+	/* } */
+
+	plugin_print("chest", "running lower kurast...\n");
+
+	town_move(WP);
+	waypoint(WP_LOWERKURAST);
+	precast();
+	open_all_chests();
+	townportal();
+
+	town_move(WP);
+	waypoint(WP_KURASTBAZAAR);
+	precast();
+	open_all_chests();
+	townportal();
+
+	town_move(WP);
+	waypoint(WP_UPPERKURAST);
+	precast();
+	open_all_chests();
+	townportal();
+
+	town_move(WP);
+	waypoint(WP_UPPERKURAST);
+	precast();
+	extension("find_level_exit")->call("chest", "Upper Kurast", "Kurast to Sewer");
+	precast();
+	open_all_chests();
+
+	extension("find_level_exit")->call("chest", "Sewers Level 1", "Sewer Down");
+	precast();
+	open_all_chests();
+
+	return TRUE;
 }
 
 _export void * module_thread(void *unused) {
 	(void)unused;
 	struct timespec ts;
+
 	clock_gettime(CLOCK_REALTIME, &ts);
 	ts.tv_sec += 2;
 
@@ -1293,58 +1637,33 @@ _export void * module_thread(void *unused) {
 
 	pthread_mutex_unlock(&act_notify_m);
 
-	if (act != 3) {
-		plugin_error("chest", "can't start from act %i\n", act);
-		leave();
-
-		pthread_exit(NULL);
-	}
-
 	time(&run_start);
 	plugin_print("chest", "starting chest run %i\n", ++runs);
 
-	town_move("spawn_ormus");
-	npc_shop("Ormus");
+	sleep(1);
 
-	// move to hratli and repair equipment
-	if (module_setting("RepairAfterRuns")->i_var && !(runs % module_setting("RepairAfterRuns")->i_var)) {
-		town_move("ormus_hratli");
-		npc_repair("Hratli");
-		town_move("hratli_ormus");
+	main_script();
+
+	if (!in_town) {
+		townportal();
 	}
 
-	// resurrect merc
-	if (module_setting("UseMerc")->b_var && !merc.id) {
-		merc_rez++;
-
-		town_move("ormus_asheara");
-		npc_merc("Asheara");
-		town_move("asheara_ormus");
+	if (in_town) {
+		time_t cur;
+		int wait_delay = module_setting("MinGameTime")->i_var - (int) difftime(time(&cur), run_start);
+		while (wait_delay > 0) {
+			plugin_print("chest", "sleeping for %d seconds...\n", wait_delay);
+			/* townportal(); */
+			sleep(5);
+			wait_delay -= 5;
+		}
 	}
-
-	town_move("ormus_wp");
-	waypoint(WP_LOWERKURAST);
-
-	plugin_print("chest", "running kurast-down...\n");
-	precast();
-	open_all_chests();
-	/* extension("find_level_exit")->call("chest", "Durance of Hate Level 2", "kurast-bazar"); */
-	/* plugin_print("chest", "running kurast-bazar...\n"); */
-	/* open_all_chests(); */
-	/* extension("find_level_exit")->call("chest", "Durance of Hate Level 2", "kurast-up"); */
-	/* plugin_print("chest", "running kurast-up...\n"); */
-	/* open_all_chests(); */
-
-    stuck:
-	print_chest_list();			/* DEBUG */
-
-	msleep(10 * 1000);		/* DEBUG */
 
 	// leave game
 	leave();
 
 	pthread_exit(NULL);
-} //TODO: main
+}
 
 _export void module_cleanup() {
 	object_clear(bot);
@@ -1371,7 +1690,7 @@ _export void module_cleanup() {
 
 	free(s_duration);
 	free(s_average);
-} //TODO
+}
 
 _export const char * module_get_title() {
 	return "chest";
@@ -1423,7 +1742,7 @@ _export bool module_load_config(struct setting_section *s) {
 	}
 
 	return TRUE;
-} //TODO
+}
 
 _export bool module_init() {
 	register_packet_handler(D2GS_RECEIVED, 0x03, process_incoming_packet);
@@ -1467,7 +1786,7 @@ _export bool module_init() {
 
 	npcs = list_new(npc_t);
 	npcs_l = list_new(npc_t);
-	chests_l = list_new(object_t);
+	chests_l = list_new(chest_t);
 
 	cur_rskill = -1;
 	cur_lskill = -1;
@@ -1475,7 +1794,7 @@ _export bool module_init() {
 	act = 0;
 
 	return TRUE;
-} //TODO
+}
 
 _export bool module_finit() {
 	unregister_packet_handler(D2GS_RECEIVED, 0x03, process_incoming_packet);
@@ -1532,4 +1851,4 @@ _export bool module_finit() {
 	free(s_runtime);
 
 	return TRUE;
-} //TODO
+}
