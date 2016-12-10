@@ -49,7 +49,7 @@
 #include "d2gs.h"
 
 
-#define MIN_WALKING_DISTANCE  1
+#define MIN_WALKING_DISTANCE  3
 #define MAX_WALKING_DISTANCE  35
 
 #define MIN_TELEPORT_DISTANCE 5

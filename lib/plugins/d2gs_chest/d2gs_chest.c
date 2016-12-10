@@ -148,7 +148,7 @@ typedef enum {
 #define ACT2_SPAWN_NODE2_X   5125
 #define ACT2_SPAWN_NODE2_Y   5114
 
-static e_town_move g_previous_dest = 0;
+static e_town_move g_previous_dest;
 
 typedef enum {
 	NEUTRAL = 0,
@@ -254,6 +254,8 @@ static int runs;
 static int runtime;
 
 static int merc_rez;
+
+bool change_act(int dst_act); //TODO: move that in .h
 
 /* ---------------------------- */
 
@@ -1014,13 +1016,18 @@ int process_incoming_packet(void *p) {
 	}
 
 	case 0x82: {
-		if (net_get_data(packet->data, 0, dword) == me.obj.id && !tp.id) {
-			tp.id = net_get_data(packet->data, 20, dword);
+		if (net_get_data(packet->data, 0, dword) == me.obj.id) {
+			plugin_debug("chest", "detected bot's town portal \n");
 
+			if (!tp.id) {
+				tp.id = net_get_data(packet->data, 20, dword);
 
-			pthread_mutex_lock(&townportal_interact_mutex);
-			pthread_cond_signal(&townportal_interact_cv);
-			pthread_mutex_unlock(&townportal_interact_mutex);
+				pthread_mutex_lock(&townportal_interact_mutex);
+				pthread_cond_signal(&townportal_interact_cv);
+				pthread_mutex_unlock(&townportal_interact_mutex);
+			} else {
+				tp.id = net_get_data(packet->data, 20, dword);
+			}
 		}
 		break;
 	}
@@ -1044,6 +1051,14 @@ int process_incoming_packet(void *p) {
 
 	case 0xac: {
 		d2gs_assign_npc(packet);
+		break;
+	}
+
+	case 0x74: { //pick corpse TODO: be sure everything is picked/equiped + send pots to belt
+		if (net_get_data(packet->data, 1, dword) == me.obj.id) {
+			d2gs_send(0x13, "00 00 00 00 %d", net_get_data(packet->data, 5, dword));
+			msleep(200);
+		}
 		break;
 	}
 
@@ -1094,7 +1109,14 @@ bool _moveto(int x, int y) {
 	int t;
 	int retry = 0;
 	do {
-		plugin_print("chest", "moving to %i/%i (retry:%d)\n", (word) x, (word) y, retry);
+		if (retry) {
+			plugin_print("chest", "moving to %i/%i (retry:%d)\n", (word) x, (word) y, retry);
+			d2gs_send(0x4b, "00 00 00 00 %d", me.obj.id);
+			msleep(100 + me.ping);
+		} else {
+			plugin_print("chest", "moving to %i/%i\n", (word) x, (word) y);
+		}
+
 		d2gs_send(0x03, "%w %w", (word) x, (word) y);
 
 		retry++;
@@ -1104,15 +1126,13 @@ bool _moveto(int x, int y) {
 
 		msleep(t > 2000 ? 2000 : t);
 
-		d2gs_send(0x4b, "00 00 00 00 %d", me.obj.id);
-
 		delay = 2000; //ugly hack to wait me.object.location update
 		do {
 			msleep(100);
 			delay -= 100;
 			d = DISTANCE(me.obj.location, p);
 		} while (d > 10 && delay);
-	} while (retry < 3 && d > 10);
+	} while (retry <= 3 && d > 10);
 
 	//pthread_cond_timedwait(&game_exit_cv, &game_exit_m, &ts);
 
@@ -1210,74 +1230,46 @@ bool _waypoint(dword area) {
 	return TRUE;
 }
 
-bool move_to_wp() {
-	e_town_move previous_dest = g_previous_dest;
-	g_previous_dest = WP;
-
-	if (me.act == 1) {
-		plugin_debug("chest", "change_act to WP1 (act:%d bot:%d,%d to:%d/%d)\n", \
-					 me.act, me.obj.location.x, me.obj.location.y, wp.location.x, wp.location.y);
-		sleep(2);
-		walk_straight(wp.location.x, wp.location.y);
-	} else if (me.act == 2) {
-		plugin_debug("chest", "change_act to WP2 (act:%d bot:%d,%d to:%d/%d)\n", \
-					 me.act, me.obj.location.x, me.obj.location.y, wp.location.x, wp.location.y);
-		if (previous_dest == GREIZ) {
-			walk_straight(GREIZ_NODE_X, GREIZ_NODE_Y);
-		} else if (previous_dest) {
-			walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
-		} else {
-			walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
-			walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
-			walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
-		}
-		walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
-	} else if (me.act == 3) {
-		plugin_debug("chest", "change_act to WP3 (act:%d bot:%d,%d to:%d/%d)\n", \
-					 me.act, me.obj.location.x, me.obj.location.y, wp.location.x, wp.location.y);
-		if (previous_dest) {
-			walk_straight(ORMUS_NODE_X, ORMUS_NODE_Y);
-		}
-		walk_straight(ACT3_WP_SPOT_X, ACT3_WP_SPOT_Y);
-	}
-
-	return TRUE;
-}
-
-bool change_act(int dst_act) {
-	if (!move_to_wp())
-		return FALSE;
-
-	if (dst_act == 2) {
-		waypoint(WP_LUTGHOLEIN);
-	} else if (dst_act == 3) {
-		waypoint(WP_KURASTDOCKS);
-	}
-
-	msleep(500);
-	/* me_set_act(dst_act); */
-
-	return TRUE;
-}
-
 bool _town_move(e_town_move where) {
-	e_town_move previous_dest = g_previous_dest;
-	g_previous_dest = where;
-
 	switch (where) {
 		case WP:
-			move_to_wp();
+			if (me.act == 1) {
+				plugin_debug("chest", "town_move from %d to WP1 (act:%d bot:%d,%d to:%d/%d)\n", \
+							 g_previous_dest, me.act, me.obj.location.x, me.obj.location.y, wp.location.x, wp.location.y);
+				sleep(2);
+				walk_straight(wp.location.x, wp.location.y);
+			} else if (me.act == 2) {
+				plugin_debug("chest", "town_move from %d to WP2 (act:%d bot:%d,%d to:%d/%d)\n", \
+							 g_previous_dest, me.act, me.obj.location.x, me.obj.location.y, wp.location.x, wp.location.y);
+				if (g_previous_dest == GREIZ) {
+					walk_straight(GREIZ_NODE_X, GREIZ_NODE_Y);
+				} else if (g_previous_dest) {
+					walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+				} else {
+					walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
+					walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
+					walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+				}
+				walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
+			} else if (me.act == 3) {
+				plugin_debug("chest", "town_move from %d to WP3 (act:%d bot:%d,%d to:%d/%d)\n", \
+							 g_previous_dest, me.act, me.obj.location.x, me.obj.location.y, wp.location.x, wp.location.y);
+				if (g_previous_dest == ORMUS) {
+					walk_straight(ORMUS_NODE_X, ORMUS_NODE_Y);
+				}
+				walk_straight(ACT3_WP_SPOT_X, ACT3_WP_SPOT_Y);
+			}
 			break;
 
 		case TP:
 			if (me.act != 3 && !change_act(3)) {
 				return FALSE;
 			}
-			plugin_debug("chest", "town_move to TP (act:%d bot:%d,%d to:%d/%d)\n", \
-						 me.act, me.obj.location.x, me.obj.location.y, wp.location.x, wp.location.y);
-			if (!previous_dest) {
+			plugin_debug("chest", "town_move from %d to TP (act:%d bot:%d,%d to:%d/%d)\n", \
+						 g_previous_dest, me.act, me.obj.location.x, me.obj.location.y, wp.location.x, wp.location.y);
+			if (!g_previous_dest) {
 				walk_straight(ACT3_SPAWN_NODE_X, ACT3_SPAWN_NODE_Y);
-			} else if (previous_dest == ORMUS) {
+			} else if (g_previous_dest == ORMUS) {
 				walk_straight(ORMUS_NODE_X, ORMUS_NODE_Y);
 			}
 			walk_straight(ACT3_TP_SPOT_X, ACT3_TP_SPOT_Y);
@@ -1287,9 +1279,9 @@ bool _town_move(e_town_move where) {
 			if (me.act != 3 && !change_act(3)) {
 				return FALSE;
 			}
-			plugin_debug("chest", "town_move to ORMUS (act:%d bot:%d,%d to:%d/%d)\n", \
-						 me.act, me.obj.location.x, me.obj.location.y, ORMUS_SPOT_Y, ORMUS_SPOT_X);
-			if (!previous_dest) {
+			plugin_debug("chest", "town_move from %d to ORMUS (act:%d bot:%d,%d to:%d/%d)\n", \
+						 g_previous_dest, me.act, me.obj.location.x, me.obj.location.y, ORMUS_SPOT_Y, ORMUS_SPOT_X);
+			if (!g_previous_dest) {
 				walk_straight(ACT3_SPAWN_NODE_X, ACT3_SPAWN_NODE_Y);
 			} else {
 				walk_straight(ORMUS_NODE_X, ORMUS_NODE_Y);
@@ -1301,15 +1293,15 @@ bool _town_move(e_town_move where) {
 			if (me.act != 2 && !change_act(2)) {
 				return FALSE;
 			}
-			plugin_debug("chest", "town_move to FARA (act:%d bot:%d,%d to:%d/%d)\n", \
-						 me.act, me.obj.location.x, me.obj.location.y, FARA_SPOT_X, FARA_SPOT_Y);
-			if (!previous_dest) {
+			plugin_debug("chest", "town_move from %d to FARA (act:%d bot:%d,%d to:%d/%d)\n", \
+						 g_previous_dest, me.act, me.obj.location.x, me.obj.location.y, FARA_SPOT_X, FARA_SPOT_Y);
+			if (!g_previous_dest) {
 				walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
 				walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
 				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
-			} else if (previous_dest == WP) {
+			} else if (g_previous_dest == WP) {
 				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
-			} else if (previous_dest == GREIZ) {
+			} else if (g_previous_dest == GREIZ) {
 				walk_straight(GREIZ_NODE_X, GREIZ_NODE_Y);
 				walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
 				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
@@ -1321,15 +1313,15 @@ bool _town_move(e_town_move where) {
 			if (me.act != 2 && !change_act(2)) {
 				return FALSE;
 			}
-			plugin_debug("chest", "town_move to LYSANDER (act:%d bot:%d,%d to:%d/%d)\n", \
-						 me.act, me.obj.location.x, me.obj.location.y, LYSANDER_SPOT_X, LYSANDER_SPOT_Y);
-			if (!previous_dest) {
+			plugin_debug("chest", "town_move from %d to LYSANDER (act:%d bot:%d,%d to:%d/%d)\n", \
+						 g_previous_dest, me.act, me.obj.location.x, me.obj.location.y, LYSANDER_SPOT_X, LYSANDER_SPOT_Y);
+			if (!g_previous_dest) {
 				walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
 				walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
 				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
-			} else if (previous_dest == WP) {
+			} else if (g_previous_dest == WP) {
 				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
-			} else if (previous_dest == GREIZ) {
+			} else if (g_previous_dest == GREIZ) {
 				walk_straight(GREIZ_NODE_X, GREIZ_NODE_Y);
 				walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
 				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
@@ -1341,14 +1333,14 @@ bool _town_move(e_town_move where) {
 			if (me.act != 2 && !change_act(2)) {
 				return FALSE;
 			}
-			plugin_debug("chest", "town_move to GREIZ (act:%d bot:%d,%d to:%d/%d)\n", \
-						 me.act, me.obj.location.x, me.obj.location.y, GREIZ_SPOT_X, GREIZ_SPOT_Y);
-			if (!previous_dest) {
+			plugin_debug("chest", "town_move from %d to GREIZ (act:%d bot:%d,%d to:%d/%d)\n", \
+						 g_previous_dest, me.act, me.obj.location.x, me.obj.location.y, GREIZ_SPOT_X, GREIZ_SPOT_Y);
+			if (!g_previous_dest) {
 				walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
 				walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
 				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
 				walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
-			} else if (previous_dest == FARA || previous_dest == LYSANDER) {
+			} else if (g_previous_dest == FARA || g_previous_dest == LYSANDER) {
 				walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
 				walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
 			}
@@ -1360,6 +1352,21 @@ bool _town_move(e_town_move where) {
 			plugin_error("chest", "town_move: destination '%d' unknown\n", where);
 			return FALSE;
 	}
+
+	g_previous_dest = where;
+	return TRUE;
+}
+
+bool change_act(int dst_act) {
+	town_move(WP);
+
+	if (dst_act == 2) {
+		waypoint(WP_LUTGHOLEIN);
+	} else if (dst_act == 3) {
+		waypoint(WP_KURASTDOCKS);
+	}
+
+	msleep(500);
 
 	return TRUE;
 }
@@ -1391,6 +1398,7 @@ bool _townportal() {
 	pthread_mutex_lock(&townportal_interact_mutex);
 	pthread_cleanup_push((cleanup_handler) pthread_mutex_unlock, (void *) &townportal_interact_mutex);
 
+	tp.id = 0;
 	d2gs_send(0x0c, "%w %w", me.obj.location.x, me.obj.location.y);
 
 	msleep(500);
@@ -1416,7 +1424,7 @@ bool _townportal() {
 		plugin_print("chest", "took townportal\n");
 
 		me_set_intown(TRUE);
-
+		g_previous_dest = TP;
 
 		msleep(400);
 
@@ -1426,7 +1434,6 @@ bool _townportal() {
 		/* } */
         d2gs_send(0x4b, "00 00 00 00 %d", me.obj.id);
 		msleep(200);
-		tp.id = 0;
 	}
 
 	pthread_cleanup_pop(1);
@@ -1544,6 +1551,7 @@ bool main_script() {
 		return FALSE;
 	}
 
+	g_previous_dest = VOID;
 	do_town_chores();
 
 	plugin_print("chest", "running lower kurast...\n");
@@ -1600,7 +1608,6 @@ _export void * module_thread(void *arg) {
 		int wait_delay = module_setting("MinGameTime")->i_var - (int) difftime(time(&cur), run_start);
 		while (wait_delay > 0) {
 			plugin_print("chest", "sleeping for %d seconds...\n", wait_delay);
-			/* townportal(); */
 			sleep(5);
 			wait_delay -= 5;
 		}
@@ -1691,6 +1698,7 @@ _export bool module_load_config(struct setting_section *s) {
 
 _export bool module_init() {
 	/* register_packet_handler(D2GS_RECEIVED, 0x03, process_incoming_packet); */
+	register_packet_handler(D2GS_RECEIVED, 0x74, process_incoming_packet);
 	register_packet_handler(D2GS_RECEIVED, 0x11, process_incoming_packet);
 	register_packet_handler(D2GS_RECEIVED, 0x51, process_incoming_packet);
 	register_packet_handler(D2GS_RECEIVED, 0xac, process_incoming_packet);
@@ -1732,11 +1740,16 @@ _export bool module_init() {
 	cur_rskill = -1;
 	cur_lskill = -1;
 
+	tp.id = 42;
+
+	g_previous_dest = VOID;
+
 	return TRUE;
 }
 
 _export bool module_finit() {
 	/* unregister_packet_handler(D2GS_RECEIVED, 0x03, process_incoming_packet); */
+	unregister_packet_handler(D2GS_RECEIVED, 0x74, process_incoming_packet);
 	unregister_packet_handler(D2GS_RECEIVED, 0x11, process_incoming_packet);
 	unregister_packet_handler(D2GS_RECEIVED, 0x51, process_incoming_packet);
 	unregister_packet_handler(D2GS_RECEIVED, 0xac, process_incoming_packet);
