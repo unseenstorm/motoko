@@ -1,4 +1,5 @@
 nobase_pkginclude_HEADERS = \
+	me.h \
 	bncs.h \
 	clientman.h \
 	d2gs.h \
@@ -15,9 +16,10 @@ nobase_pkginclude_HEADERS = \
 	data/monster_names.h \
 	data/skills.h \
 	data/super_uniques.h
-	
+
 bin_PROGRAMS = motoko
 motoko_SOURCES = \
+	me.c \
 	bncs.c \
 	bncs.h \
 	clientman.c \

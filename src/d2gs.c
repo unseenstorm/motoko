@@ -40,6 +40,8 @@
 #include "moduleman.h"
 #include "packet.h"
 #include "gui.h"
+#include "me.h"
+extern bot_t me;
 
 #include <util/net.h>
 #include <util/system.h>
@@ -797,6 +799,8 @@ void * d2gs_client_engine(d2gs_con_info_t *info) {
 
 	bool term = FALSE;
 
+	me_init();
+
 	pthread_mutex_lock(&socket_m);
 
 	while (!d2gs_engine_shutdown && !term) {
@@ -818,6 +822,12 @@ void * d2gs_client_engine(d2gs_con_info_t *info) {
 		pthread_mutex_lock(&socket_m);
 
 		switch (incoming.id) {
+
+		case 0x03: {
+			me_set_act(net_get_data(incoming.data, 0, word));
+			me_set_act(me.act + 1);
+			break;
+		}
 
 		case 0xaf: {
 			char format[512] = "%d %w %b %b 00 00 00 50 cc 5d ed b6 19 a5 91 00 %s 00 ";
@@ -855,20 +865,35 @@ void * d2gs_client_engine(d2gs_con_info_t *info) {
 		}
 
 		case 0x04: {
+			if (!me.ingame) {
 
-			internal_send(D2GS_ENGINE_MESSAGE, "%d", MODULES_STARTUP);
+				me_set_ingame(TRUE);
 
-			start_modules(MODULE_D2GS);
+				internal_send(D2GS_ENGINE_MESSAGE, "%d", MODULES_STARTUP);
+				start_modules(MODULE_D2GS);
+			}
 
 			break;
 		}
 
-		case 0x06:
+		/* case 0x05: //"server unload done" */
+		/* case 0x06: */
 		case 0xb4:
 		case 0xb0: {
 			print("[D2GS] connection terminated\n");
 			//net_shutdown(d2gs_socket);
 			term = TRUE;
+			break;
+		}
+
+		case 0x59: {
+			if (!me.id) {
+				me_set_id(net_get_data(incoming.data, 0, dword));
+				me_set_x(net_get_data(incoming.data, 21, word));
+				me_set_y(net_get_data(incoming.data, 23, word));
+
+				print("[D2GS] detected bot character at %i/%i (%d)\n", me.x, me.y, me.id);
+			}
 			break;
 		}
 
@@ -939,6 +964,7 @@ void * d2gs_client_engine(d2gs_con_info_t *info) {
 	unregister_packet_handler(INTERNAL, INTERNAL_REQUEST, (packet_handler_t) on_internal_request);
 
 	pthread_mutex_destroy(&socket_m);
+	me_finit();
 
 	pthread_exit(NULL);
 }

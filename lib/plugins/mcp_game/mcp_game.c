@@ -504,56 +504,56 @@ _export void * module_thread(void *arg) {
 
 			pthread_mutex_unlock(&pub_m);
 		} else {
-		if (difftime(time(NULL), start_t) < 3600) {
-			if (module_setting("GameLimitPerHour")->i_var > 0 && (n_gph > module_setting("GameLimitPerHour")->i_var)) {
-				plugin_print("mcp game", "game limit per hour reached (%i)\n", module_setting("GameLimitPerHour")->i_var);
-				continue;
+			if (difftime(time(NULL), start_t) < 3600) {
+				if (module_setting("GameLimitPerHour")->i_var > 0 && (n_gph > module_setting("GameLimitPerHour")->i_var)) {
+					plugin_print("mcp game", "game limit per hour reached (%i)\n", module_setting("GameLimitPerHour")->i_var);
+					continue;
+				} else {
+					n_gph++;
+				}
 			} else {
-				n_gph++;
+				start_t = time(NULL);
+				n_gph = 0;
 			}
-		} else {
-			start_t = time(NULL);
-			n_gph = 0;
-		}
 
-		if (string_compare(module_setting("GameNamePass")->s_var, "random", FALSE) || !strlen(module_setting("GameNamePass")->s_var)) {
-			string_random(15, 'a', 26, game_name);
-			string_random(15, 'a', 26, game_pass);
-		} else {
-			if (game_count > 99) game_count = 0;
-			game_count++;
+			if (string_compare(module_setting("GameNamePass")->s_var, "random", FALSE) || !strlen(module_setting("GameNamePass")->s_var)) {
+				string_random(15, 'a', 26, game_name);
+				string_random(15, 'a', 26, game_pass);
+			} else {
+				game_count++;
+				if (game_count > 999) game_count = 1;
 
-			char *c_setting = strdup(module_setting("GameNamePass")->s_var);
+				char *c_setting = strdup(module_setting("GameNamePass")->s_var);
 
-			char *tok = strtok(c_setting, "/");
-			snprintf(game_name, 15, "%s-%s%i", tok ? tok : "", game_count < 10 ? "0" : "", game_count);
+				char *tok = strtok(c_setting, "/");
+				snprintf(game_name, 15, "%s%i", tok ? tok : "", game_count);
 
-			tok = strtok(NULL, "/");
-			strncpy(game_pass, tok ? tok : "", 15);
+				tok = strtok(NULL, "/");
+				strncpy(game_pass, tok ? tok : "", 15);
 
-			free(c_setting);
-		}
+				free(c_setting);
+			}
 
-		while (!mcp_responsed) {
-			pthread_mutex_lock(&game_created_mutex);
-			pthread_cleanup_push((pthread_cleanup_handler_t) pthread_mutex_unlock, (void *) &game_created_mutex)
+			while (!mcp_responsed) {
+				pthread_mutex_lock(&game_created_mutex);
+				pthread_cleanup_push((pthread_cleanup_handler_t) pthread_mutex_unlock, (void *) &game_created_mutex)
 
-			mcp_send(0x03, "%w %d 01 ff 08 %s 00 %s 00 %s 00", request_id, game_diff, game_name, game_pass, "");
+					mcp_send(0x03, "%w %d 01 ff 08 %s 00 %s 00 %s 00", request_id, game_diff, game_name, game_pass, "");
 
-			struct timespec ts;
-			clock_gettime(CLOCK_REALTIME, &ts);
-			ts.tv_sec += 2;
+				struct timespec ts;
+				clock_gettime(CLOCK_REALTIME, &ts);
+				ts.tv_sec += 2;
 
-			pthread_cond_timedwait(&game_created_cond_v, &game_created_mutex, &ts);
+				pthread_cond_timedwait(&game_created_cond_v, &game_created_mutex, &ts);
 
-			pthread_cleanup_pop(1);
-		}
+				pthread_cleanup_pop(1);
+			}
 
-		request_id++;
-		//mcp_responsed = FALSE;
-		n_created++;
+			request_id++;
+			//mcp_responsed = FALSE;
+			n_created++;
 
-		plugin_print("mcp game", "created game %s / %s (%s)\n", game_name, game_pass, module_setting("Difficulty")->s_var);
+			plugin_print("mcp game", "created game %s / %s (%s)\n", game_name, game_pass, module_setting("Difficulty")->s_var);
 		}
 
 		mcp_responsed = FALSE;
@@ -563,7 +563,7 @@ _export void * module_thread(void *arg) {
 
 		while (!mcp_responsed) {
 			pthread_mutex_lock(&game_joined_mutex);
-			pthread_cleanup_push((pthread_cleanup_handler_t) pthread_mutex_unlock, (void *) &game_joined_mutex)
+			pthread_cleanup_push((pthread_cleanup_handler_t) pthread_mutex_unlock, (void *) &game_joined_mutex);
 
 			mcp_send(0x04, "03 00 %s 00 %s 00", game_name, game_pass);
 
@@ -579,6 +579,7 @@ _export void * module_thread(void *arg) {
 
 		if (!game_joined) {
 			ftj++;
+			plugin_print("mcp game", "FTJ\n");
 			goto retry;
 		}
 
@@ -586,7 +587,7 @@ _export void * module_thread(void *arg) {
 
 		pthread_cond_wait(&d2gs_engine_shutdown_cond_v, &d2gs_engine_shutdown_mutex);
 
-		retry:
+	retry:
 		pthread_cleanup_pop(1);
 	}
 

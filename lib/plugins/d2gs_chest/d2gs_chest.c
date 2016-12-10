@@ -38,6 +38,8 @@
 #include <util/string.h>
 #include <settings.h>
 #include <gui.h>
+#include <me.h>
+extern bot_t me;
 
 #include <data/monster_fields.h>
 #include <data/monster_names.h>
@@ -213,7 +215,7 @@ typedef struct {
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define SQUARE(x) ((x) * (x))
 
-#define DISTANCE(a, b) ((int) sqrt((double) (SQUARE((a).x - (b).x) + SQUARE((a).y - (b).y))))
+#define DISTANCE(ax, ay, bx, by) ((int) sqrt((double) (SQUARE(ax - bx) + SQUARE(ay - by))))
 
 #define MIN_WALKING_DISTANCE  1
 #define MAX_WALKING_DISTANCE  35
@@ -232,8 +234,6 @@ pthread_mutex_t npcs_m;
 
 pthread_mutex_t chests_m;
 
-static object_t bot;
-
 static object_t merc;
 
 static object_t tp;
@@ -244,8 +244,6 @@ static int scrolls;
 
 static dword scroll_id;
 
-static byte act;
-
 pthread_cond_t npc_interact_cv;
 
 pthread_mutex_t npc_interact_mutex;
@@ -254,13 +252,9 @@ pthread_cond_t townportal_interact_cv;
 
 pthread_mutex_t townportal_interact_mutex;
 
-pthread_mutex_t act_notify_m;
-
-pthread_cond_t act_notify_cv;
-
 /* ACTIONS */
 
-typedef void(*function_t)(object_t *, dword);
+typedef void(*function_t)(dword);
 
 typedef struct {
 	function_t function;
@@ -288,29 +282,28 @@ static int merc_rez;
 
 /* ---------------------------- */
 
-void cast_self(object_t *obj, dword arg) {
+void cast_self(dword arg) {
 	(void)arg;
-	d2gs_send(0x0c, "%w %w", obj->location.x, obj->location.y);
+	d2gs_send(0x0c, "%w %w", me.x, me.y);
 
 	msleep(module_setting("CastDelay")->i_var);
 }
 
-void cast_right(object_t *obj, dword arg) {
+void cast_right(dword arg) {
 	(void)arg;
-	d2gs_send(0x0d, "01 00 00 00 %d", obj->id);
+	d2gs_send(0x0d, "01 00 00 00 %d", me.id);
 
 	msleep(module_setting("CastDelay")->i_var);
 }
 
-void cast_left(object_t *obj, dword arg) {
+void cast_left(dword arg) {
 	(void)arg;
-	d2gs_send(0x06, "01 00 00 00 %d", obj->id);
+	d2gs_send(0x06, "01 00 00 00 %d", me.id);
 
 	msleep(module_setting("CastDelay")->i_var);
 }
 
-void swap_right(object_t *obj, dword arg) {
-	(void)obj;
+void swap_right(dword arg) {
 	if (cur_rskill == arg) {
 		return;
 	}
@@ -322,8 +315,7 @@ void swap_right(object_t *obj, dword arg) {
 	cur_rskill = arg;
 }
 
-void swap_left(object_t *obj, dword arg) {
-	(void)obj;
+void swap_left(dword arg) {
 	if (cur_lskill == arg) {
 		return;
 	}
@@ -335,9 +327,8 @@ void swap_left(object_t *obj, dword arg) {
 	cur_lskill = arg;
 }
 
-void switch_slot(object_t *obj, dword arg) {
+void switch_slot(dword arg) {
 	(void)arg;
-	(void)obj;
 	msleep(300);
 
 	pthread_mutex_lock(&switch_slot_m);
@@ -549,9 +540,9 @@ bool npc_interact(npc_t *npc) {
 	pthread_mutex_lock(&npc_interact_mutex);
 	pthread_cleanup_push((cleanup_handler) pthread_mutex_unlock, (void *) &npc_interact_mutex);
 
-	d2gs_send(0x59, "01 00 00 00 %d %d %d", npc->object.id, bot.location.x, bot.location.y);
+	d2gs_send(0x59, "01 00 00 00 %d %d %d", npc->object.id, me.x, me.y);
 
-	unsigned d = DISTANCE(bot.location, npc->object.location);
+	unsigned d = DISTANCE(me.x, me.y, npc->object.location.x, npc->object.location.y);
 	int diff;
 
 	for (diff = d * 120; diff > 0; diff -= 200) {
@@ -735,7 +726,7 @@ int chest_compare_id(chest_t *a, chest_t *b) {
 void print_chest(chest_t *chest) {
 	plugin_debug("chest", "chest at:%d/%d (d=%d), id:%u, preset_id:%d, opened:%d, locked:%d\n", \
 				 chest->object.location.x, chest->object.location.y,	\
-				 DISTANCE(bot.location, chest->object.location),		\
+				 DISTANCE(me.x, me.y, chest->object.location.x, chest->object.location.y),		\
 				 chest->object.id, chest->preset_id, chest->is_opened, chest->is_locked);
 }
 
@@ -904,56 +895,43 @@ int d2gs_char_location_update(void *p) {
 	switch (packet->id) {
 
 		case 0x15: { // received packet
-			bot.location.x = net_get_data(packet->data, 5, word); //TODO: 2 byte alignment
-			bot.location.y = net_get_data(packet->data, 7, word); //TODO: 2 byte alignment
+			me_set_x(net_get_data(packet->data, 5, word)); //TODO: 2 byte alignment
+			me_set_y(net_get_data(packet->data, 7, word)); //TODO: 2 byte alignment
 		}
 		break;
 
 		case 0x95: { // received packet
-			bot.location.x = net_extract_bits(packet->data, 45, 15);
-			bot.location.y = net_extract_bits(packet->data, 61, 15);
+			me_set_x(net_extract_bits(packet->data, 45, 15));
+			me_set_y(net_extract_bits(packet->data, 61, 15));
 		}
 		break;
 
 		case 0x01:
 		case 0x03: { // sent packets
-			bot.location.x = net_get_data(packet->data, 0, word);
-			bot.location.y = net_get_data(packet->data, 2, word);
+			me_set_x(net_get_data(packet->data, 0, word));
+			me_set_y(net_get_data(packet->data, 2, word));
 		}
 		break;
 
 		case 0x0c: { // sent packet
 			if (cur_rskill == 0x36) {
-				bot.location.x = net_get_data(packet->data, 0, word);
-				bot.location.y = net_get_data(packet->data, 2, word);
+				me_set_x(net_get_data(packet->data, 0, word));
+				me_set_y(net_get_data(packet->data, 2, word));
 			}
 		}
 		break;
 
 	}
 
-	/* plugin_debug("chest", "bot update (%02X): %i/%i\n", packet->id, bot.location.x, bot.location.y); */
+	/* plugin_debug("chest", "bot update (%02X): %i/%i\n", packet->id, me.x, me.y); */
 
 	return FORWARD_PACKET;
 }
-
-#define tile_contains(tx, ty, ox, oy) ((ox >= tx * 5) && (ox < (tx + (t)->size) * 5) && \
-									   (oy >= ty * 5) && (oy < (ty + (t)->size) * 5))
 
 int process_incoming_packet(void *p) {
 	d2gs_packet_t *packet = (d2gs_packet_t *) p;
 
 	switch (packet->id) {
-
-	case 0x03: {
-		pthread_mutex_lock(&act_notify_m);
-
-		act = net_get_data(packet->data, 0, byte) + 1;
-
-		pthread_cond_signal(&act_notify_cv);
-		pthread_mutex_unlock(&act_notify_m);
-		break;
-	}
 
 	/* case 0x07: { */
 	/* 	word x = net_get_data(packet->data, 0, word); */
@@ -962,7 +940,7 @@ int process_incoming_packet(void *p) {
 	/* 	break; */
 	/* } */
 
-		case 0x0c: {
+	case 0x0c: {
 		d2gs_update_npc(packet);
 		break;
 	}
@@ -1028,17 +1006,6 @@ int process_incoming_packet(void *p) {
 		break;
 	}
 
-	case 0x59: {
-		if (!bot.id) {
-			bot.id = net_get_data(packet->data, 0, dword);
-			bot.location.x = net_get_data(packet->data, 21, word); //TODO: 2 byte alignment
-			bot.location.y = net_get_data(packet->data, 23, word); //TODO: 2 byte alignment
-
-			plugin_debug("chest", "detected bot character at %i/%i\n", bot.location.x, bot.location.y);
-		}
-		break;
-	}
-
 	case 0x5a: { // auto-accept party
 		if (net_get_data(packet->data, 0, byte) == 0x07) {
 			if (net_get_data(packet->data, 1, byte) == 0x02) {
@@ -1063,14 +1030,14 @@ int process_incoming_packet(void *p) {
 	}
 
 	case 0x81: {
-		if (net_get_data(packet->data, 3, dword) == bot.id) { //TODO: 4 byte alignment
+		if (net_get_data(packet->data, 3, dword) == me.id) { //TODO: 4 byte alignment
 			merc.id = net_get_data(packet->data, 7, dword); //TODO: 4 byte alignment
 		}
 		break;
 	}
 
 	case 0x82: {
-		if (net_get_data(packet->data, 0, dword) == bot.id && !tp.id) {
+		if (net_get_data(packet->data, 0, dword) == me.id && !tp.id) {
 			tp.id = net_get_data(packet->data, 20, dword);
 
 
@@ -1115,20 +1082,17 @@ bool _moveto(int x, int y) {
 	/*if (exited) {
 		goto end;
 	}*/
+	int d = DISTANCE(me.x, me.y, x, y);
 
-	point_t p = { x, y };
-
-	int d = DISTANCE(bot.location, p);
-
-	int delay = 2000; //ugly hack to wait bot.location update
+	int delay = 2000; //ugly hack to wait me.object.location update
 	while (d > MAX_WALKING_DISTANCE && delay) {
 		msleep(100);
 		delay -= 100;
-		d = DISTANCE(bot.location, p);
+		d = DISTANCE(me.x, me.y, x, y);
 	}
 
 	if (d > MAX_WALKING_DISTANCE) {
-		plugin_print("chest", "got stuck trying to move to %i/%i (%i)\n", p.x, p.y, d);
+		plugin_print("chest", "got stuck trying to move to %i/%i (%i)\n", x, y, d);
 
 		return FALSE;
 	}
@@ -1152,8 +1116,8 @@ bool _moveto(int x, int y) {
 	int t;
 	int retry = 0;
 	do {
-		plugin_print("chest", "moving to %i/%i (retry:%d)\n", (word) p.x, (word) p.y, retry);
-		d2gs_send(0x03, "%w %w", (word) p.x, (word) p.y);
+		plugin_print("chest", "moving to %i/%i (retry:%d)\n", (word) x, (word) y, retry);
+		d2gs_send(0x03, "%w %w", (word) x, (word) y);
 
 		retry++;
 
@@ -1162,13 +1126,13 @@ bool _moveto(int x, int y) {
 
 		msleep(t > 2000 ? 2000 : t);
 
-		d2gs_send(0x4b, "00 00 00 00 %d", bot.id);
+		d2gs_send(0x4b, "00 00 00 00 %d", me.id);
 
-		delay = 2000; //ugly hack to wait bot.location update
+		delay = 2000; //ugly hack to wait me.object.location update
 		do {
 			msleep(100);
 			delay -= 100;
-			d = DISTANCE(bot.location, p);
+			d = DISTANCE(me.x, me.y, x, y);
 		} while (d > 10 && delay);
 	} while (retry < 3 && d > 10);
 
@@ -1184,7 +1148,7 @@ bool _moveto(int x, int y) {
 bool teleport(int x, int y) {
 	plugin_print("chest", "teleporting to %i/%i\n", x, y);
 
-	swap_right(NULL, 0x36);
+	swap_right(0x36);
 
 	d2gs_send(0x0c, "%w %w", x, y);
 
@@ -1194,20 +1158,20 @@ bool teleport(int x, int y) {
 }
 
 bool split_path(int x, int y, int min_range, int max_range, bool (*move_fun)(int, int)) {
-	point_t p = {x, y};
+	int d = DISTANCE(me.x, me.y, x, y);
 
-	if (DISTANCE(bot.location, p) < min_range) {
+	if (d < min_range) {
 		return TRUE;
 	}
 
-	if (DISTANCE(bot.location, p) > max_range) {
-		int n_nodes = DISTANCE(bot.location, p) / max_range + 1;
+	if (d > max_range) {
+		int n_nodes = d / max_range + 1;
 
-		int inc_x = (p.x - bot.location.x) / n_nodes;
-		int inc_y = (p.y - bot.location.y) / n_nodes;
+		int inc_x = (x - me.x) / n_nodes;
+		int inc_y = (y - me.y) / n_nodes;
 
-		int target_x = bot.location.x;
-		int target_y = bot.location.y;
+		int target_x = me.x;
+		int target_y = me.y;
 
 		int i;
 		for (i = 0; i <= n_nodes - 1; i++) {
@@ -1217,7 +1181,11 @@ bool split_path(int x, int y, int min_range, int max_range, bool (*move_fun)(int
 				return FALSE;
 			}
 		}
-	} else if (!move_fun(x, y)) {
+
+		d = DISTANCE(me.x, me.y, x, y);
+	}
+
+	if (d >= min_range && d <= max_range && !move_fun(x, y)) {
 		return FALSE;
 	}
 
@@ -1264,49 +1232,71 @@ bool _waypoint(dword area) {
 	return TRUE;
 }
 
+bool move_to_wp() {
+	e_town_move previous_dest = g_previous_dest;
+	g_previous_dest = WP;
+
+	if (me.act == 1) {
+		plugin_debug("chest", "change_act to WP1 (act:%d bot:%d,%d to:%d/%d)\n", \
+					 me.act, me.x, me.y, wp.location.x, wp.location.y);
+		sleep(2);
+		walk_straight(wp.location.x, wp.location.y);
+	} else if (me.act == 2) {
+		plugin_debug("chest", "change_act to WP2 (act:%d bot:%d,%d to:%d/%d)\n", \
+					 me.act, me.x, me.y, wp.location.x, wp.location.y);
+		if (previous_dest == GREIZ) {
+			walk_straight(GREIZ_NODE_X, GREIZ_NODE_Y);
+		} else if (previous_dest) {
+			walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+		} else {
+			walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
+			walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
+			walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
+		}
+		walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
+	} else if (me.act == 3) {
+		plugin_debug("chest", "change_act to WP3 (act:%d bot:%d,%d to:%d/%d)\n", \
+					 me.act, me.x, me.y, wp.location.x, wp.location.y);
+		if (previous_dest) {
+			walk_straight(ORMUS_NODE_X, ORMUS_NODE_Y);
+		}
+		walk_straight(ACT3_WP_SPOT_X, ACT3_WP_SPOT_Y);
+	}
+
+	return TRUE;
+}
+
+bool change_act(int dst_act) {
+	if (!move_to_wp())
+		return FALSE;
+
+	if (dst_act == 2) {
+		waypoint(WP_LUTGHOLEIN);
+	} else if (dst_act == 3) {
+		waypoint(WP_KURASTDOCKS);
+	}
+
+	msleep(500);
+	/* me_set_act(dst_act); */
+
+	return TRUE;
+}
+
 bool _town_move(e_town_move where) {
 	e_town_move previous_dest = g_previous_dest;
 	g_previous_dest = where;
 
 	switch (where) {
 		case WP:
-			if (act == 1) {
-				plugin_debug("chest", "town_move to WP1 (act:%d bot:%d,%d to:%d/%d)\n", \
-							 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
-				sleep(2);
-				walk_straight(wp.location.x, wp.location.y);
-			} else if (act == 2) {
-				plugin_debug("chest", "town_move to WP2 (act:%d bot:%d,%d to:%d/%d)\n", \
-							 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
-				if (previous_dest == GREIZ) {
-					walk_straight(GREIZ_NODE_X, GREIZ_NODE_Y);
-				} else if (previous_dest) {
-					walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
-				} else {
-					walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
-					walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
-					walk_straight(ACT2_CENTRAL_NODE_X, ACT2_CENTRAL_NODE_Y);
-				}
-				walk_straight(ACT2_WP_SPOT_X, ACT2_WP_SPOT_Y);
-			} else if (act == 3) {
-				plugin_debug("chest", "town_move to WP3 (act:%d bot:%d,%d to:%d/%d)\n", \
-							 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
-				if (previous_dest) {
-					walk_straight(ORMUS_NODE_X, ORMUS_NODE_Y);
-				}
-				walk_straight(ACT3_WP_SPOT_X, ACT3_WP_SPOT_Y);
-			}
+			move_to_wp();
 			break;
 
 		case TP:
-			if (act != 3) {
-				town_move(WP);
-				waypoint(WP_KURASTDOCKS);
-				act = 3;
-				msleep(500);
+			if (me.act != 3 && !change_act(3)) {
+				return FALSE;
 			}
 			plugin_debug("chest", "town_move to TP (act:%d bot:%d,%d to:%d/%d)\n", \
-						 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+						 me.act, me.x, me.y, wp.location.x, wp.location.y);
 			if (!previous_dest) {
 				walk_straight(ACT3_SPAWN_NODE_X, ACT3_SPAWN_NODE_Y);
 			} else if (previous_dest == ORMUS) {
@@ -1316,14 +1306,11 @@ bool _town_move(e_town_move where) {
 			break;
 
 		case ORMUS:
-			if (act != 3) {
-				town_move(WP);
-				waypoint(WP_KURASTDOCKS);
-				act = 3;
-				msleep(500);
+			if (me.act != 3 && !change_act(3)) {
+				return FALSE;
 			}
 			plugin_debug("chest", "town_move to ORMUS (act:%d bot:%d,%d to:%d/%d)\n", \
-						 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+						 me.act, me.x, me.y, ORMUS_SPOT_Y, ORMUS_SPOT_X);
 			if (!previous_dest) {
 				walk_straight(ACT3_SPAWN_NODE_X, ACT3_SPAWN_NODE_Y);
 			} else {
@@ -1333,14 +1320,11 @@ bool _town_move(e_town_move where) {
 			break;
 
 		case FARA:
-			if (act != 2) {
-				town_move(WP);
-				waypoint(WP_LUTGHOLEIN);
-				act = 2;
-				msleep(500);
+			if (me.act != 2 && !change_act(2)) {
+				return FALSE;
 			}
 			plugin_debug("chest", "town_move to FARA (act:%d bot:%d,%d to:%d/%d)\n", \
-						 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+						 me.act, me.x, me.y, FARA_SPOT_X, FARA_SPOT_Y);
 			if (!previous_dest) {
 				walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
 				walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
@@ -1356,14 +1340,11 @@ bool _town_move(e_town_move where) {
 			break;
 
 		case LYSANDER:
-			if (act != 2) {
-				town_move(WP);
-				waypoint(WP_LUTGHOLEIN);
-				act = 2;
-				msleep(500);
+			if (me.act != 2 && !change_act(2)) {
+				return FALSE;
 			}
 			plugin_debug("chest", "town_move to LYSANDER (act:%d bot:%d,%d to:%d/%d)\n", \
-						 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+						 me.act, me.x, me.y, LYSANDER_SPOT_X, LYSANDER_SPOT_Y);
 			if (!previous_dest) {
 				walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
 				walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
@@ -1379,14 +1360,11 @@ bool _town_move(e_town_move where) {
 			break;
 
 		case GREIZ:
-			if (act != 2) {
-				town_move(WP);
-				waypoint(WP_LUTGHOLEIN);
-				act = 2;
-				msleep(500);
+			if (me.act != 2 && !change_act(2)) {
+				return FALSE;
 			}
 			plugin_debug("chest", "town_move to GREIZ (act:%d bot:%d,%d to:%d/%d)\n", \
-						 act, bot.location.x, bot.location.y, wp.location.x, wp.location.y);
+						 me.act, me.x, me.y, GREIZ_SPOT_X, GREIZ_SPOT_Y);
 			if (!previous_dest) {
 				walk_straight(ACT2_SPAWN_NODE1_X, ACT2_SPAWN_NODE1_Y);
 				walk_straight(ACT2_SPAWN_NODE2_X, ACT2_SPAWN_NODE2_Y);
@@ -1415,7 +1393,7 @@ void precast() {
 	action_t *a;
 
 	while ((a = iterator_next(&it))) {
-		a->function(&bot, a->arg);
+		a->function(a->arg);
 	}
 }
 
@@ -1435,7 +1413,7 @@ bool _townportal() {
 	pthread_mutex_lock(&townportal_interact_mutex);
 	pthread_cleanup_push((cleanup_handler) pthread_mutex_unlock, (void *) &townportal_interact_mutex);
 
-	d2gs_send(0x0c, "%w %w", bot.location.x, bot.location.y);
+	d2gs_send(0x0c, "%w %w", me.x, me.y);
 
 	msleep(500);
 
@@ -1463,11 +1441,11 @@ bool _townportal() {
 
 		msleep(400);
 
-		/* if (act == 3) { //eheh :p */
-		/* 	bot.location.x = 5153; */
-		/* 	bot.location.y = 5067; */
+		/* if (me.act == 3) { //eheh :p */
+		/* 	me_set_x(5153); */
+		/* 	me_set_y(5067); */
 		/* } */
-        d2gs_send(0x4b, "00 00 00 00 %d", bot.id);
+        d2gs_send(0x4b, "00 00 00 00 %d", me.id);
 		msleep(200);
 		tp.id = 0;
 	}
@@ -1486,7 +1464,7 @@ void leave() {
 void open_chest(chest_t *chest) {
 	plugin_debug("chest", "open chest at %i/%i (%u)\n", chest->object.location.x, chest->object.location.y, chest->object.id);
 
-	/* d2gs_send(0x4b, "00 00 00 00 %d", bot.id); */
+	/* d2gs_send(0x4b, "00 00 00 00 %d", me.id); */
 	/* msleep(200); */
 
 	d2gs_send(0x13, "02 00 00 00 %d", chest->object.id);
@@ -1511,7 +1489,7 @@ chest_t * get_closest_chest() {
 	it = list_iterator(&chests_l);
 	while ((current_chest = iterator_next(&it))) {
 		if (!current_chest->is_opened) {
-			tmp_dist = DISTANCE(current_chest->object.location, bot.location);
+			tmp_dist = DISTANCE(me.x, me.y, current_chest->object.location.x, current_chest->object.location.y);
 			if (tmp_dist < min_dist && tmp_dist < 1000) {
 				min_dist = tmp_dist;
 				closest_chest = current_chest;
@@ -1552,12 +1530,7 @@ void open_all_chests() {
 	}
 }
 
-bool main_script() {
-	if (act < 1 || act > 3) {
-		plugin_error("chest", "can't start from act %i\n", act);
-		return FALSE;
-	}
-
+bool do_town_chores() {
 	plugin_print("chest", "running town chores...\n");
 
 	town_move(ORMUS);
@@ -1570,18 +1543,29 @@ bool main_script() {
 	/* } */
 
 	// move to fara and repair equipment
-	/* if (module_setting("RepairAfterRuns")->i_var && !(runs % module_setting("RepairAfterRuns")->i_var)) { */
-	/* 	town_move(FARA); */
-	/* 	npc_repair("Fara"); */
-	/* } */
+	if (module_setting("RepairAfterRuns")->i_var && !(runs % module_setting("RepairAfterRuns")->i_var)) {
+		town_move(FARA);
+		npc_repair("Fara");
+	}
 
-	/* // resurrect merc */
-	/* if (module_setting("UseMerc")->b_var && !merc.id) { */
-	/* 	merc_rez++; */
+	// resurrect merc
+	if (module_setting("UseMerc")->b_var && !merc.id) {
+		merc_rez++;
 
-	/* 	town_move(GREIZ); */
-	/* 	npc_merc("Greiz"); */
-	/* } */
+		town_move(GREIZ);
+		npc_merc("Greiz");
+	}
+
+	return TRUE;
+}
+
+bool main_script() {
+	if (me.act < 1 || me.act > 3) {
+		plugin_error("chest", "can't start from act %i\n", me.act);
+		return FALSE;
+	}
+
+	do_town_chores();
 
 	plugin_print("chest", "running lower kurast...\n");
 
@@ -1617,32 +1601,16 @@ bool main_script() {
 	return TRUE;
 }
 
-_export void * module_thread(void *unused) {
-	(void)unused;
-	struct timespec ts;
-
-	clock_gettime(CLOCK_REALTIME, &ts);
-	ts.tv_sec += 2;
-
-	pthread_mutex_lock(&act_notify_m);
-
-	if (!act && pthread_cond_timedwait(&act_notify_cv, &act_notify_m, &ts)) {
-		pthread_mutex_unlock(&act_notify_m);
-
-		plugin_error("chest", "haven't received act number in time\n");
-		leave();
-
-		pthread_exit(NULL);
-	}
-
-	pthread_mutex_unlock(&act_notify_m);
+_export void * module_thread(void *arg) {
+	(void)arg;
 
 	time(&run_start);
 	plugin_print("chest", "starting chest run %i\n", ++runs);
 
-	sleep(1);
+	sleep(3);
 
-	main_script();
+	if (!main_script())
+		plugin_print("chest", "error: something went wrong :/\n");
 
 	if (!in_town) {
 		townportal();
@@ -1666,12 +1634,10 @@ _export void * module_thread(void *unused) {
 }
 
 _export void module_cleanup() {
-	object_clear(bot);
 	object_clear(merc);
 	object_clear(tp);
 	object_clear(wp);
 	scroll_id = 0;
-	act = 0;
 	list_clear(&npcs);
 	list_clear(&npcs_l);
 	list_clear(&chests_l);
@@ -1745,9 +1711,8 @@ _export bool module_load_config(struct setting_section *s) {
 }
 
 _export bool module_init() {
-	register_packet_handler(D2GS_RECEIVED, 0x03, process_incoming_packet);
+	/* register_packet_handler(D2GS_RECEIVED, 0x03, process_incoming_packet); */
 	register_packet_handler(D2GS_RECEIVED, 0x11, process_incoming_packet);
-	register_packet_handler(D2GS_RECEIVED, 0x59, process_incoming_packet);
 	register_packet_handler(D2GS_RECEIVED, 0x51, process_incoming_packet);
 	register_packet_handler(D2GS_RECEIVED, 0xac, process_incoming_packet);
 	register_packet_handler(D2GS_RECEIVED, 0x97, process_incoming_packet);
@@ -1778,9 +1743,6 @@ _export bool module_init() {
 	pthread_cond_init(&townportal_interact_cv, NULL);
 	pthread_mutex_init(&townportal_interact_mutex, NULL);
 
-	pthread_cond_init(&act_notify_cv, NULL);
-	pthread_mutex_init(&act_notify_m, NULL);
-
 	pthread_mutex_init(&switch_slot_m, NULL);
 	pthread_cond_init(&switch_slot_cv, NULL);
 
@@ -1791,15 +1753,12 @@ _export bool module_init() {
 	cur_rskill = -1;
 	cur_lskill = -1;
 
-	act = 0;
-
 	return TRUE;
 }
 
 _export bool module_finit() {
-	unregister_packet_handler(D2GS_RECEIVED, 0x03, process_incoming_packet);
+	/* unregister_packet_handler(D2GS_RECEIVED, 0x03, process_incoming_packet); */
 	unregister_packet_handler(D2GS_RECEIVED, 0x11, process_incoming_packet);
-	unregister_packet_handler(D2GS_RECEIVED, 0x59, process_incoming_packet);
 	unregister_packet_handler(D2GS_RECEIVED, 0x51, process_incoming_packet);
 	unregister_packet_handler(D2GS_RECEIVED, 0xac, process_incoming_packet);
 	unregister_packet_handler(D2GS_RECEIVED, 0x97, process_incoming_packet);
@@ -1829,9 +1788,6 @@ _export bool module_finit() {
 
 	pthread_cond_destroy(&townportal_interact_cv);
 	pthread_mutex_destroy(&townportal_interact_mutex);
-
-	pthread_cond_destroy(&act_notify_cv);
-	pthread_mutex_destroy(&act_notify_m);
 
 	pthread_mutex_destroy(&switch_slot_m);
 	pthread_cond_destroy(&switch_slot_cv);

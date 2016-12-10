@@ -16,7 +16,8 @@ C_SRC =				internal.c		\
 					gui.c			\
 					d2gs.c			\
 					main.c			\
-					mcp.c
+					mcp.c			\
+					me.c
 
 C_UTIL =			string.c		\
 					file.c			\
@@ -195,7 +196,7 @@ all:
 debug: FLAGS = "CFLAGS = -g -ggdb"
 debug: all
 
-sanitize: FLAGS = "CFLAGS = -g -ggdb -fsanitize=address,undefined -ferror-limit=5"
+sanitize: FLAGS = "CFLAGS = -g -ggdb -O2 -fsanitize=address,undefined -ferror-limit=5"
 sanitize: all
 
 me_cry: FLAGS = "CFLAGS = -Wpedantic -Wshadow -Wconversion -Wcast-align \
