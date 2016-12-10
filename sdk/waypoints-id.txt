@@ -1,0 +1,43 @@
+Waypoint IDs
+------------
+
+0x00 - Close Menu
+0x01 - Rogue Encampment
+0x03 - Cold Plains
+0x04 - Stony Fields
+0x05 - Dark Wood
+0x06 - Black Marsh
+0x1B - Outer Cloister
+0x1D - Jail Level 1
+0x20 - Inner Cloister
+0x23 - CataCombs Level 2
+0x28 - Lut Gholein
+0x30 - Sewers Level 2
+0x2A - Dry Hills
+0x39 - Halls Of The Dead Level 2
+0x2B - Far Oasis
+0x2C - Lost City
+0x34 - Palace Cellar Level 1
+0x4A - Arcain Sanctuary
+0x2E - Canyon Of The Magi
+0x4B - Kurast Docks
+0x4C - Spider Forest
+0x4D - Great Marsh
+0x4E - Flayer Jungle
+0x4F - Lower Kurast
+0x50 - Kurast Bazaar
+0x51 - Upper Kurast
+0x53 - Travincal
+0x65 - Durance Of Hate Level 2
+0x67 - The Pandeminoum Fortress
+0x6A - City Of The Damned
+0x6B - River Of Flame
+0x6D - Harrogath
+0x6F - Frigid Highlands
+0x70 - Arreat Plateau
+0x71 - Crystalline Passage
+0x73 - Glacial Trail
+0x7B - Halls Of Pain
+0x75 - Frozen Tundra
+0x76 - The Ancient's Way
+0x81 - Worldstone Keep Level 2

@@ -1,0 +1,652 @@
+id   Code   Name
+0   hax   Hand Axe
+1   axe   Axe
+2   2ax   Double Axe
+3   mpi   Military Pick
+4   wax   War Axe
+5   lax   Large Axe
+6   bax   Broad Axe
+7   btx   Battle Axe
+8   gax   Great Axe
+9   gix   Giant Axe
+10   wnd   Wand
+11   ywn   Yew Wand
+12   bwn   Bone Wand
+13   gwn   Grim Wand
+14   clb   Club
+15   scp   Scepter
+16   gsc   Grand Scepter
+17   wsp   War Scepter
+18   spc   Spiked Club
+19   mac   Mace
+20   mst   Morning Star
+21   fla   Flail
+22   whm   War Hammer
+23   mau   Maul
+24   gma   Great Maul
+25   ssd   Short Sword
+26   scm   Scimitar
+27   sbr   Sabre
+28   flc   Falchion
+29   crs   Crystal Sword
+30   bsd   Broad Sword
+31   lsd   Long Sword
+32   wsd   War Sword
+33   2hs   Two-handed Sword
+34   clm   Claymore
+35   gis   Giant Sword
+36   bsw   Bastard Sword
+37   flb   Flamberge
+38   gsd   Great Sword
+39   dgr   Dagger
+40   dir   Dirk
+41   kri   Kris
+42   bld   Blade
+43   tkf   Throwing Knife
+44   tax   Throwing Axe
+45   bkf   Balanced Knife
+46   bal   Balanced Axe
+47   jav   Javelin
+48   pil   Pilum
+49   ssp   Short Spear
+50   glv   Glaive
+51   tsp   Throwing Spear
+52   spr   Spear
+53   tri   Trident
+54   brn   Brandistock
+55   spt   Spetum
+56   pik   Pike
+57   bar   Bardiche
+58   vou   Voulge
+59   scy   Scythe
+60   pax   Poleaxe
+61   hal   Halberd
+62   wsc   War Scythe
+63   sst   Short Staff
+64   lst   Long Staff
+65   gst   Gnarled Staff
+66   bst   Battle Staff
+67   wst   War Staff
+68   sbw   Short Bow
+69   hbw   Hunter's Bow
+70   lbw   Long Bow
+71   cbw   Composite Bow
+72   sbb   Short Battle Bow
+73   lbb   Long Battle ow
+74   swb   Short War Bow
+75   lwb   Long War Bow
+76   lxb   Light CrossBow
+77   mxb   CrossBow
+78   hxb   Heavy CrossBow
+79   rxb   Repeating CrossBow
+80   gps   Rancid Gas Potion
+81   ops   Oil Potion
+82   gpm   Choking Gas Potion
+83   opm   Exploding Potion
+84   gpl   Strangling Gas Potion
+85   opl   Fulminating Potion
+86   d33   Decoy Gidbinn
+87   g33   The Gidbinn
+88   leg   Wirt's Leg
+89   hdm   Horadric Malus
+90   hfh   Hellforge Hammer
+91   hst   Horadric Staff
+92   msf   Staff of Kings
+93   9ha   Hatchet
+94   9ax   Cleaver
+95   92a   Twin Axe
+96   9mp   Crowbill
+97   9wa   Naga
+98   9la   Military Axe
+99   9ba   Bearded Axe
+100   9bt   Tabar
+101   9ga   Gothic Axe
+102   9gi   Ancient Axe
+103   9wn   Burnt Wand
+104   9yw   Petrified Wand
+105   9bw   Tomb Wand
+106   9gw   Grave Wand
+107   9cl   Cudgel
+108   9sc   Rune Scepter
+109   9qs   Holy Water Sprinkler
+110   9ws   Divine Scepter
+111   9sp   Barbed Club
+112   9ma   Flanged Mace
+113   9mt   Jagged Star
+114   9fl   Knout
+115   9wh   Battle Hammer
+116   9m9   War Club
+117   9gm   Martel De Fer
+118   9ss   Gladius
+119   9sm   Cutlass
+120   9sb   Shamshir
+121   9fc   Tulwar
+122   9cr   Dimensional Blade
+123   9bs   Battle Sword
+124   9ls   Rune Sword
+125   9wd   Ancient Sword
+126   92h   Espandon
+127   9cm   Dacian Falx
+128   9gs   Tusk Sword
+129   9b9   Gothic Sword
+130   9fb   Zweihander
+131   9gd   Executioner Sword
+132   9dg   Poignard
+133   9di   Rondel
+134   9kr   Cinquedeas
+135   9bl   Stiletto
+136   9tk   Battle Dart
+137   9ta   Francisca
+138   9bk   War Dart
+139   9b8   Hurlbat
+140   9ja   War Javelin
+141   9pi   Great Pilum
+142   9s9   Simbilan
+143   9gl   Spiculum
+144   9ts   Harpoon
+145   9sr   War Spear
+146   9tr   Fuscina
+147   9br   War Fork
+148   9st   Yari
+149   9p9   Lance
+150   9b7   Lochaber Axe
+151   9vo   Bill
+152   9s8   Battle Scythe
+153   9pa   Partizan
+154   9h9   Bec-De-Corbin
+155   9wc   Grim Scythe
+156   8ss   Jo Staff
+157   8ls   Quarter Staff
+158   8cs   Cedar Staff
+159   8bs   Gothic Staff
+160   8ws   Rune Staff
+161   8sb   Edge Bow
+162   8hb   Razor Bow
+163   8lb   Cedar Bow
+164   8cb   Double Bow
+165   8s8   Short Siege Bow
+166   8l8   Large Siege Bow
+167   8sw   Rune Bow
+168   8lw   Gothic Bow
+169   8lx   Arbalest
+170   8mx   Siege Crossbow
+171   8hx   Ballista
+172   8rx   Chu-ko-nu
+173   qf1   Khalim's Flail
+174   qf2   Khalim's Will
+175   ktr   Katar
+176   wrb   Wrist Blade
+177   axf   Hatchet Hands
+178   ces   Cestus
+179   clw   Claws
+180   btl   Blade Talons
+181   skr   Scissors Katar
+182   9ar   Quhab
+183   9wb   Wrist Spike
+184   9xf   Fascia
+185   9cs   Hand Scythe
+186   9lw   Greater Claws
+187   9hw   Greater Talons
+188   9qr   Scissors Quhab
+189   7ar   Suwayyah
+190   7wb   Wrist Sword
+191   7xf   War Fist
+192   7cs   Battle Cestus
+193   7lw   Feral Claws
+194   7hw   Runic Talons
+195   7qr   Scissors Suwayyah
+196   7ha   Tomahawk
+197   7ax   Small Crescent
+198   72a   Ettin Axe
+199   7mp   War Spike
+200   7wa   Berserker Axe
+201   7la   Feral Axe
+202   7ba   Silver-Edged Axe
+203   7bt   Decapitator
+204   7ga   Champion Axe
+205   7gi   Glorious Axe
+206   7wn   Polished Wand
+207   7yw   Ghost Wand
+208   7bw   Lich Wand
+209   7gw   Unearthed Wand
+210   7cl   Truncheon
+211   7sc   Mighty Scepter
+212   7qs   Seraph Rod
+213   7ws   Caduceus
+214   7sp   Tyrant Club
+215   7ma   Reinforced Mace
+216   7mf   Devil Star
+217   7fl   Scourge
+218   7wh   Legendary Mallet
+219   7m7   Ogre Maul
+220   7gm   Thunder Maul
+221   7ss   Falcata
+222   7sm   Ataghan
+223   7sb   Elegant Blade
+224   7fc   Hydra Edge
+225   7cr   Phase Blade
+226   7bs   Conquest Sword
+227   7ls   Cryptic Sword
+228   7wd   Mythical Sword
+229   72h   Legend Sword
+230   7cm   Highland Blade
+231   7gs   Balrog Blade
+232   7b7   Champion Sword
+233   7fb   Colossus Sword
+234   7gd   Colossus Blade
+235   7dg   Bone Knife
+236   7di   Mithril Point
+237   7kr   Fanged Knife
+238   7bl   Legend Spike
+239   7tk   Flying Knife
+240   7ta   Flying Axe
+241   7bk   Winged Knife
+242   7b8   Winged Axe
+243   7ja   Hyperion Javelin
+244   7pi   Stygian Pilum
+245   7s7   Balrog Spear
+246   7gl   Ghost Glaive
+247   7ts   Winged Harpoon
+248   7sr   Hyperion Spear
+249   7tr   Stygian Pike
+250   7br   Mancatcher
+251   7st   Ghost Spear
+252   7p7   War Pike
+253   7o7   Ogre Axe
+254   7vo   Colossus Voulge
+255   7s8   Thresher
+256   7pa   Cryptic Axe
+257   7h7   Great Poleaxe
+258   7wc   Giant Thresher
+259   6ss   Walking Stick
+260   6ls   Stalagmite
+261   6cs   Elder Staff
+262   6bs   Shillelagh
+263   6ws   Archon Staff
+264   6sb   Spider Bow
+265   6hb   Blade Bow
+266   6lb   Shadow Bow
+267   6cb   Great Bow
+268   6s7   Diamond Bow
+269   6l7   Crusader Bow
+270   6sw   Ward Bow
+271   6lw   Hydra Bow
+272   6lx   Pellet Bow
+273   6mx   Gorgon CrossBow
+274   6hx   Colossus CrossBow
+275   6rx   Demon CrossBow
+276   ob1   Eagle Orb
+277   ob2   Sacred Globe
+278   ob3   Smoked Sphere
+279   ob4   Clasped Orb
+280   ob5   Jared's Stone
+281   am1   Stag Bow
+282   am2   Reflex Bow
+283   am3   Maiden Spear
+284   am4   Maiden Pike
+285   am5   Maiden Javelin
+286   ob6   Glowing Orb
+287   ob7   Crystalline Globe
+288   ob8   Cloudy Sphere
+289   ob9   Sparkling Ball
+290   oba   Swirling Crystal
+291   am6   Ashwood Bow
+292   am7   Ceremonial Bow
+293   am8   Ceremonial Spear
+294   am9   Ceremonial Pike
+295   ama   Ceremonial Javelin
+296   obb   Heavenly Stone
+297   obc   Eldritch Orb
+298   obd   Demon Heart
+299   obe   Vortex Orb
+300   obf   Dimensional Shard
+301   amb   Matriarchal Bow
+302   amc   Grandmatron Bow
+303   amd   Matriarchal Spear
+304   ame   Matriarchal Pike
+305   amf   Matriarchal Javelin
+306   cap   Cap
+307   skp   Skull Cap
+308   hlm   Helm
+309   fhl   Full Helm
+310   ghm   Great Helm
+311   crn   Crown
+312   msk   Mask
+313   qui   Quilted Armor
+314   lea   Leather Armor
+315   hla   Hardleather Armor
+316   stu   Studded Leather
+317   rng   Ring Mail
+318   scl   Scale Mail
+319   chn   Chain Mail
+320   brs   Breast Plate
+321   spl   Splint Mail
+322   plt   Plate Mail
+323   fld   Field Plate
+324   gth   Gothic Plate
+325   ful   Full Plate Mail
+326   aar   Ancient Armor
+327   ltp   Light Plate
+328   buc   Buckler
+329   sml   Small Shield
+330   lrg   Large Shield
+331   kit   Kite Shield
+332   tow   Tower Shield
+333   gts   Gothic Shield
+334   lgl   Leather Gloves
+335   vgl   Heavy Gloves
+336   mgl   Chain Gloves
+337   tgl   Light Gauntlets
+338   hgl   Gauntlets
+339   lbt   Boots
+340   vbt   Heavy Boots
+341   mbt   Chain Boots
+342   tbt   Light Plated Boots
+343   hbt   Greaves
+344   lbl   Sash
+345   vbl   Light Belt
+346   mbl   Belt
+347   tbl   Heavy Belt
+348   hbl   Plated Belt
+349   bhm   Bone Helm
+350   bsh   Bone Shield
+351   spk   Spiked Shield
+352   xap   War Hat
+353   xkp   Sallet
+354   xlm   Casque
+355   xhl   Basinet
+356   xhm   Winged Helm
+357   xrn   Grand Crown
+358   xsk   Death Mask
+359   xui   Ghost Armor
+360   xea   Serpentskin Armor
+361   xla   Demonhide Armor
+362   xtu   Trellised Armor
+363   xng   Linked Mail
+364   xcl   Tigulated Mail
+365   xhn   Mesh Armor
+366   xrs   Cuirass
+367   xpl   Russet Armor
+368   xlt   Templar Coat
+369   xld   Sharktooth Armor
+370   xth   Embossed Plate
+371   xul   Chaos Armor
+372   xar   Ornate Plate
+373   xtp   Mage Plate
+374   xuc   Defender
+375   xml   Round Shield
+376   xrg   Scutum
+377   xit   Dragon Shield
+378   xow   Pavise
+379   xts   Ancient Shield
+380   xlg   Demonhide Gloves
+381   xvg   Sharkskin Gloves
+382   xmg   Heavy Bracers
+383   xtg   Battle Gauntlets
+384   xhg   War Gauntlets
+385   xlb   Demonhide Boots
+386   xvb   Sharkskin Boots
+387   xmb   Mesh Boots
+388   xtb   Battle Boots
+389   xhb   War Boots
+390   zlb   Demonhide Sash
+391   zvb   Sharkskin Belt
+392   zmb   Mesh Belt
+393   ztb   Battle Belt
+394   zhb   War Belt
+395   xh9   Grim Helm
+396   xsh   Grim Shield
+397   xpk   Barbed Shield
+398   dr1   Wolf Head
+399   dr2   Hawk Helm
+400   dr3   Antlers
+401   dr4   Falcon Mask
+402   dr5   Spirit Mask
+403   ba1   Jawbone Cap
+404   ba2   Fanged Helm
+405   ba3   Horned Helm
+406   ba4   Assault Helmet
+407   ba5   Avenger Guard
+408   pa1   Targe
+409   pa2   Rondache
+410   pa3   Heraldic Shield
+411   pa4   Aerin Shield
+412   pa5   Crown Shield
+413   ne1   Preserved Head
+414   ne2   Zombie Head
+415   ne3   Unraveller Head
+416   ne4   Gargoyle Head
+417   ne5   Demon Head
+418   ci0   Circlet
+419   ci1   Coronet
+420   ci2   Tiara
+421   ci3   Diadem
+422   uap   Shako
+423   ukp   Hydra Skull
+424   ulm   Armet
+425   uhl   Giant Conch
+426   uhm   Spired Helm
+427   urn   Corona
+428   usk   Demonhead
+429   uui   Dusk Shroud
+430   uea   Wyrm Hide
+431   ula   Scarab Husk
+432   utu   Wire Fleece
+433   ung   Diamond Mail
+434   ucl   Loricated Mail
+435   uhn   Bone Weave
+436   urs   Great Hauberk
+437   upl   Balrog Skin
+438   ult   Hellforge Plate
+439   uld   Kraken Shell
+440   uth   Lacquered Plate
+441   uul   Shadow Plate
+442   uar   Sacred Armor
+443   utp   Archon Plate
+444   uuc   Heater
+445   uml   Luna
+446   urg   Hyperion
+447   uit   Monarch
+448   uow   Aegis
+449   uts   Ward
+450   ulg   Bramble Mitts
+451   uvg   Vampirebone Gloves
+452   umg   Vambraces
+453   utg   Crusader Gauntlets
+454   uhg   Ogre Gauntlets
+455   ulb   Wyrmhide Boots
+456   uvb   Scarabshell Boots
+457   umb   Boneweave Boots
+458   utb   Mirrored Boots
+459   uhb   Myrmidon Greaves
+460   ulc   Spiderweb Sash
+461   uvc   Vampirefang Belt
+462   umc   Mithril Coil
+463   utc   Troll Belt
+464   uhc   Colossus Girdle
+465   uh9   Bone Visage
+466   ush   Troll Nest
+467   upk   Blade Barrier
+468   dr6   Alpha Helm
+469   dr7   Griffon Headdress
+470   dr8   Hunter's Guise
+471   dr9   Sacred Feathers
+472   dra   Totemic Mask
+473   ba6   Jawbone Visor
+474   ba7   Lion Helm
+475   ba8   Rage Mask
+476   ba9   Savage Helmet
+477   baa   Slayer Guard
+478   pa6   Akaran Targe
+479   pa7   Akaran Rondache
+480   pa8   Protector Shield
+481   pa9   Gilded Shield
+482   paa   Royal Shield
+483   ne6   Mummified Trophy
+484   ne7   Fetish Trophy
+485   ne8   Sexton Trophy
+486   ne9   Cantor Trophy
+487   nea   Hierophant Trophy
+488   drb   Blood Spirit
+489   drc   Sun Spirit
+490   drd   Earth Spirit
+491   dre   Sky Spirit
+492   drf   Dream Spirit
+493   bab   Carnage Helm
+494   bac   Fury Visor
+495   bad   Destroyer Helm
+496   bae   Conqueror Crown
+497   baf   Guardian Crown
+498   pab   Sacred Targe
+499   pac   Sacred Rondache
+500   pad   Kurast Shield
+501   pae   Zakarum Shield
+502   paf   Vortex Shield
+503   neb   Minion Skull
+504   nec   Hellspawn Skull
+505   ned   Overseer Skull
+506   nee   Succubus Skull
+507   nef   Bloodlord Skull
+508   elx   Elixir
+513   vps   Stamina Potion
+514   yps   Antidote Potion
+515   rvs   Rejuvenation Potion
+516   rvl   Full Rejuvenation Potion
+517   wms   Thawing Potion
+518   tbk   Tome Of Town Portal
+519   ibk   Tome Of Identify
+520   amu   Amulet
+521   vip   Viper Amulet
+522   rin   Ring
+523   gld   Gold
+524   bks   Scroll Of Inifuss
+525   bkd   Key To The Cairn Stones
+526   aqv   Arrows
+527   tch   Torch
+528   cqv   Bolts
+529   tsc   Scroll Of Town Portal
+530   isc   Scroll Of Identify
+531   hrt   Heart
+532   brz   Brain
+533   jaw   Jawbone
+534   eyz   Eye
+535   hrn   Horn
+536   tal   Tail
+537   flg   Flag
+538   fng   Fang
+539   qll   Quill
+540   sol   Soul
+541   scz   Scalp
+542   spe   Spleen
+543   key   Key
+544   luv   The Black Tower Key
+545   xyz   Potion of Life
+546   j34   A Jade Figurine
+547   g34   The Golden Bird
+548   bbb   Lam Esen's Tome
+549   box   Horadric Cube
+550   tr1   Horadric Scroll
+551   mss   Mephisto's Soulstone
+552   ass   Book Of Skill
+553   qey   Khalim's Eye
+554   qhr   Khalim's Heart
+555   qbr   Khalim's Brain
+556   ear   Ear
+557   gcv   Chipped Amethyst
+558   gfv   Flawed Amethyst
+559   gsv   Amethyst
+560   gzv   Flawless Amethyst
+561   gpv   Perfect Amethyst
+562   gcy   Chipped Topaz
+563   gfy   Flawed Topaz
+564   gsy   Topaz
+565   gly   Flawless Topaz
+566   gpy   Perfect Topaz
+567   gcb   Chipped Sapphire
+568   gfb   Flawed Sapphire
+569   gsb   Sapphire
+570   glb   Flawless Sapphire
+571   gpb   Perfect Sapphire
+572   gcg   Chipped Emerald
+573   gfg   Flawed Emerald
+574   gsg   Emerald
+575   glg   Flawless Emerald
+576   gpg   Perfect Emerald
+577   gcr   Chipped Ruby
+578   gfr   Flawed Ruby
+579   gsr   Ruby
+580   glr   Flawless Ruby
+581   gpr   Perfect Ruby
+582   gcw   Chipped Diamond
+583   gfw   Flawed Diamond
+584   gsw   Diamond
+585   glw   Flawless Diamond
+586   gpw   Perfect Diamond
+587   hp1   Minor Healing Potion
+588   hp2   Light Healing Potion
+589   hp3   Healing Potion
+590   hp4   Greater Healing Potion
+591   hp5   Super Healing Potion
+592   mp1   Minor Mana Potion
+593   mp2   Light Mana Potion
+594   mp3   Mana Potion
+595   mp4   Greater Mana Potion
+596   mp5   Super Mana Potion
+597   skc   Chipped Skull
+598   skf   Flawed Skull
+599   sku   Skull
+600   skl   Flawless Skull
+601   skz   Perfect Skull
+602   hrb   Herb
+603   cm1   Small Charm
+604   cm2   Large Charm
+605   cm3   Grand Charm
+610   r01   El Rune
+611   r02   Eld Rune
+612   r03   Tir Rune
+613   r04   Nef Rune
+614   r05   Eth Rune
+615   r06   Ith Rune
+616   r07   Tal Rune
+617   r08   Ral Rune
+618   r09   Ort Rune
+619   r10   Thul Rune
+620   r11   Amn Rune
+621   r12   Sol Rune
+622   r13   Shael Rune
+623   r14   Dol Rune
+624   r15   Hel Rune
+625   r16   Io Rune
+626   r17   Lum Rune
+627   r18   Ko Rune
+628   r19   Fal Rune
+629   r20   Lem Rune
+630   r21   Pul Rune
+631   r22   Um Rune
+632   r23   Mal Rune
+633   r24   Ist Rune
+634   r25   Gul Rune
+635   r26   Vex Rune
+636   r27   Ohm Rune
+637   r28   Lo Rune
+638   r29   Sur Rune
+639   r30   Ber Rune
+640   r31   Jah Rune
+641   r32   Cham Rune
+642   r33   Zod Rune
+643   jew   Jewel
+644   ice   Malah's Potion
+645   0sc   Scroll Of Knowledge
+646   tr2   Scroll Of Resistance
+647      Key Of Terror
+648      Key Of Hate
+649      Key Of Destruction
+650      Diablo's Horn
+651      Baal's Eye
+652      Mephisto's Brain
+653      Token of Absolution
+654      Twisted Essence Of Suffering
+655      Charged Essence Of Hatred
+656      Burning Essence Of Terror
+657      Festering Essence Of Destruction
+658      Standard Of Heroes
