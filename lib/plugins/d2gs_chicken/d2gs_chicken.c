@@ -40,6 +40,9 @@
 #include <util/system.h>
 #include <util/types.h>
 
+#include <me.h>
+extern bot_t me;
+
 #define PERCENT(a, b) ((a) != 0 ? (int) (((double) (b) / (double) (a)) * 100) : 0)
 
 static struct setting module_settings[] = (struct setting []) {
@@ -55,8 +58,6 @@ static struct setting module_settings[] = (struct setting []) {
 static struct list module_settings_list = LIST(module_settings, struct setting, 7);
 
 #define module_setting(name) ((struct setting *)list_find(&module_settings_list, (comparator_t) compare_setting, name))
-
-word hp, mp;
 
 int hp_pots_used, total_hp_pots_used, mp_pots_used, total_mp_pots_used, chicken, rip, n_games;
 
@@ -316,19 +317,19 @@ int d2gs_char_update(void *p) {
 
 		plugin_debug("chicken", "update hp: %i mp: %i\n", updated_hp, updated_mp);
 
-		if (updated_hp == 0 && updated_hp < hp) {
+		if (updated_hp == 0 && updated_hp < me.hp) {
 			d2gs_send(0x69, "");
 
 			plugin_print("chicken", "RIP\n");
 
 			rip++;
 		}
-		else if (updated_hp < module_setting("HPChickenLimit")->i_var && updated_hp < hp) {
+		else if (updated_hp < module_setting("HPChickenLimit")->i_var && updated_hp < me.hp) {
 			leave_game();
 
 			plugin_print("chicken", "chicken (%i hp)\n", updated_hp);
 		}
-		else if (updated_hp < module_setting("HPPotionLimit")->i_var  && updated_hp < hp) {
+		else if (updated_hp < module_setting("HPPotionLimit")->i_var  && updated_hp < me.hp) {
 			if (!potion(HEALTH_POTION)) {
 				leave_game();
 
@@ -337,12 +338,12 @@ int d2gs_char_update(void *p) {
 				plugin_print("chicken", "use healing pot (%i hp)\n", updated_hp);
 			}
 		}
-		else if (updated_mp < module_setting("MPChickenLimit")->i_var && updated_mp < mp) {
+		else if (updated_mp < module_setting("MPChickenLimit")->i_var && updated_mp < me.mp) {
 			leave_game();
 
 			plugin_print("chicken", "chicken (%i mp)\n", updated_mp);
 		}
-		else if (updated_mp < module_setting("MPPotionLimit")->i_var && updated_mp < mp) {
+		else if (updated_mp < module_setting("MPPotionLimit")->i_var && updated_mp < me.mp) {
 			if (!potion(MANA_POTION)) {
 				leave_game();
 
@@ -352,8 +353,8 @@ int d2gs_char_update(void *p) {
 			}
 		}
 
-		hp = updated_hp;
-		mp = updated_mp;
+		me_set_hp(updated_hp);
+		me_set_mp(updated_mp);
 	}
 
 	return FORWARD_PACKET;
@@ -574,16 +575,16 @@ int d2gs_on_ping(void *p) {
 			struct timespec pong_ts;
 			clock_gettime(CLOCK_REALTIME, &pong_ts);
 
-			int latency = (pong_ts.tv_sec - ping_ts.tv_sec) * 1000 + (pong_ts.tv_nsec - ping_ts.tv_nsec) / 1000000;
+			me_set_ping((pong_ts.tv_sec - ping_ts.tv_sec) * 1000 + (pong_ts.tv_nsec - ping_ts.tv_nsec) / 1000000);
 
-			if (module_setting("PingChickenLimit")->i_var && (latency > module_setting("PingChickenLimit")->i_var)) {
+			if (module_setting("PingChickenLimit")->i_var && (me.ping > module_setting("PingChickenLimit")->i_var)) {
 				leave_game();
 
-				plugin_print("chicken", "chicken (ping: %i ms)\n", latency);
-			} else if (latency > 300) {
-				plugin_print("chicken", "warning: high latency to game server (%i ms)\n", latency);
+				plugin_print("chicken", "chicken (ping: %i ms)\n", me.ping);
+			} else if (me.ping > 300) {
+				plugin_print("chicken", "warning: high latency to game server (%i ms)\n", me.ping);
 			}
-			plugin_debug("chicken", "latency: %i ms\n", latency);
+			plugin_debug("chicken", "me.ping: %i ms\n", me.ping);
 			break;
 		}
 	}

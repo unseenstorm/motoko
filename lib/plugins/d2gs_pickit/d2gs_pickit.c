@@ -44,18 +44,10 @@
 #include <util/system.h>
 #include <util/types.h>
 
+#include <me.h>
+extern bot_t me;
+
 typedef void (*pthread_cleanup_handler_t)(void *);
-
-#define PERCENT(a, b) ((a) != 0 ? (int) (((double) (b) / (double) (a)) * 100) : 0)
-
-typedef struct {
-	word x;
-	word y;
-} point_t;
-
-#define SQUARE(x) ((x) * (x))
-
-#define DISTANCE(a, b) ((int) sqrt((double) (SQUARE((a).x - (b).x) + SQUARE((a).y - (b).y))))
 
 point_t location; // test pickit
 
@@ -79,8 +71,6 @@ typedef struct {
 struct list items;
 struct list valuable = LIST(NULL, item_t, 0); // must init here because load_config is called before init
 struct list nolog = LIST(NULL, char[4], 0);
-
-dword gold;
 
 pthread_mutex_t items_m;
 
@@ -338,7 +328,6 @@ _export bool module_init() {
 
 	items = list_new(item_t);
 
-	gold = 0;
 	is_picked = FALSE;
 
 	pthread_mutex_init(&items_m, NULL);
@@ -404,8 +393,6 @@ _export void module_cleanup() {
 	}
 
 	list_clear(&items);
-
-	gold = 0;
 
 	routine_scheduled = FALSE;
 }
@@ -710,17 +697,17 @@ int d2gs_gold_update(void *p) {
 		break;
 
 		case 0x1d: {
-			amount = net_get_data(packet->data, 1, byte) - gold;
+			amount = net_get_data(packet->data, 1, byte) - me.gold;
 		}
 		break;
 
 		case 0x1e: {
-			amount = net_get_data(packet->data, 1, word) - gold; //TODO: 2 byte alignment
+			amount = net_get_data(packet->data, 1, word) - me.gold; //TODO: 2 byte alignment
 		}
 		break;
 
 		case 0x1f: {
-			amount = net_get_data(packet->data, 1, dword) - gold;
+			amount = net_get_data(packet->data, 1, dword) - me.gold;
 		}
 		break;
 	}
@@ -768,9 +755,9 @@ int d2gs_gold_update(void *p) {
 		}
 	}
 
-	gold += amount;
+	me_set_gold(me.gold + amount);
 
-	plugin_debug("pickit", "%i gold in inventory (%02x)\n", gold, packet->id);
+	plugin_debug("pickit", "%i gold in inventory (%02x)\n", me.gold, packet->id);
 
 	return FORWARD_PACKET;
 }

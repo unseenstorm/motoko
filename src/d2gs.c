@@ -824,8 +824,7 @@ void * d2gs_client_engine(d2gs_con_info_t *info) {
 		switch (incoming.id) {
 
 		case 0x03: {
-			me_set_act(net_get_data(incoming.data, 0, word));
-			me_set_act(me.act + 1);
+			me_set_act(net_get_data(incoming.data, 0, word) + 1);
 			break;
 		}
 
@@ -887,12 +886,12 @@ void * d2gs_client_engine(d2gs_con_info_t *info) {
 		}
 
 		case 0x59: {
-			if (!me.id) {
+			if (!me.obj.id) {
 				me_set_id(net_get_data(incoming.data, 0, dword));
 				me_set_x(net_get_data(incoming.data, 21, word));
 				me_set_y(net_get_data(incoming.data, 23, word));
 
-				print("[D2GS] detected bot character at %i/%i (%d)\n", me.x, me.y, me.id);
+				print("[D2GS] detected bot character at %i/%i (%d)\n", me.obj.location.x, me.obj.location.y, me.obj.id);
 			}
 			break;
 		}

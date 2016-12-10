@@ -50,6 +50,9 @@
 #include "exits.h"
 #include "mazes.h"
 
+#include <me.h>
+extern bot_t me;
+
 static struct setting module_settings[] = (struct setting []) {
 	SETTING("CastDelay", INTEGER, 250)
 };
@@ -57,8 +60,6 @@ static struct setting module_settings[] = (struct setting []) {
 static struct list module_settings_list = LIST(module_settings, struct setting, 1);
 
 #define module_setting(name) ((struct setting *)list_find(&module_settings_list, (comparator_t) compare_setting, name))
-
-#define PERCENT(a, b) ((a) != 0 ? (int) (((double) (b) / (double) (a)) * 100) : 0)
 
 /* statistics */
 static int n_runs = 0;
@@ -68,28 +69,9 @@ static int n_tiles_discovered = 0;
 static int n_direct_path = 0;
 static int t_total = 0;
 
-#define MAX_TELEPORT_DISTANCE 45
-
-#define min(x, y) ((x) < (y) ? (x) : (y))
 
 pthread_mutex_t teleport_m;
 pthread_cond_t teleport_cv;
-
-typedef struct {
-	word x;
-	word y;
-} point_t;
-
-typedef struct {
-	dword id;
-	point_t location;
-} object_t;
-
-#define SQUARE(x) ((x) * (x))
-
-#define DISTANCE(a, b) ((int) sqrt((double) (SQUARE((a).x - (b).x) + SQUARE((a).y - (b).y))))
-
-static object_t bot;
 
 typedef struct {
 	object_t object;
@@ -572,7 +554,7 @@ void dump_room_layout_simple(room_layout_t *layout, struct list *tiles) {
 				if (c->visited) r = "x";
 			}
 			if (tile_check_for_exit(&t, NULL, NULL)) r = "e";
-			if (tile_contains(&t, &bot)) r = "o";
+			if (tile_contains(&t, &(me.obj))) r = "o";
 			tile_destroy(&t);
 			print(layout->layout[i][j] ? r : " ");
 			if (east(layout, i, j) && layout->layout[i][j]) {
@@ -615,7 +597,7 @@ void dump_tiles(struct list *tiles) {
 			if (t->adjacent.north) print("S");
 			if (t->adjacent.west) print("W");
 			if (t->visited) print(" visited");
-			if (tile_contains(t, &bot)) print(" <---");
+			if (tile_contains(t, &(me.obj))) print(" <---");
 			print("\n");
 		}
 	}
@@ -688,6 +670,9 @@ int get_tile_size_by_area(byte area) {
 void tile_add(word x, word y, byte area) {
 	tile_t new = tile_new(x, y, get_tile_size_by_area(area)); // retrieve tile size corresponding to area
 	tile_t *t = list_find(&tiles[area], (comparator_t) tile_compare, &new);
+	if (tile_contains(&new, &(me.obj))) {
+		me_set_area(area);
+	}
 	if (!t) {
 		plugin_debug("pathing", "new tile at %i/%i (%02X)\n", new.x, new.y, area);
 		//tile_t *base = tiles[area].elements;
@@ -740,7 +725,7 @@ tile_t * get_current_tile(tile_t *c) {
 	struct iterator it = list_iterator(c_tiles);
 	tile_t *t;
 	while ((t = iterator_next(&it))) {
-		if (tile_contains(t, &bot)) {
+		if (tile_contains(t, &(me.obj))) {
 			if (c) {
 				*c = *t;
 			}
@@ -757,7 +742,7 @@ void set_current_tile_visited() {
 	struct iterator it = list_iterator(c_tiles);
 	tile_t *t;
 	while ((t = iterator_next(&it))) {
-		if (tile_contains(t, &bot)) {
+		if (tile_contains(t, &(me.obj))) {
 			t->visited = TRUE;
 		}
 	}
@@ -887,7 +872,7 @@ bool get_next_tile(tile_t *c, tile_t *r, const char *exit) {
 	struct iterator it2 = list_iterator(c_tiles);
 	tile_t *t1;
 	while ((t1 = iterator_next(&it2))) {
-		if (tile_contains(t1, &bot)) {
+		if (tile_contains(t1, &(me.obj))) {
 			c = t1;
 		}
 	}
@@ -1041,7 +1026,7 @@ bool dijkstra(tile_t *source, tile_t *target, struct list *path) {
 
 void teleport(int x, int y) {
 	point_t p = { x, y };
-	plugin_print("pathing", "teleporting to %i/%i (%i)\n", x, y, DISTANCE(p, bot.location));
+	plugin_print("pathing", "teleporting to %i/%i (%i)\n", x, y, DISTANCE(p, me.obj.location));
 
 	//swap_right(NULL, 0x36);
 
@@ -1171,7 +1156,7 @@ bool get_valid_teleport_coords(tile_t *t, struct list *l) {
 	point_t p, q;
 	tile_data_t *d = get_corresponding_tile_data(c_tiles_data, t);
 	if (d) {
-		s = get_walkable_coords(d, t, &p, &bot.location);
+		s = get_walkable_coords(d, t, &p, &(me.obj).location);
 	}
 	pthread_mutex_lock(&npcs_m);
 	if (!s && !list_empty(t->npcs)) {
@@ -1182,7 +1167,7 @@ bool get_valid_teleport_coords(tile_t *t, struct list *l) {
 				p.x = o->location.x;
 				p.y = o->location.y;
 				s = TRUE;
-			} else if (DISTANCE(o->location, bot.location) < DISTANCE(p, bot.location)) {
+			} else if (DISTANCE(o->location, me.obj.location) < DISTANCE(p, me.obj.location)) {
 				p.x = o->location.x;
 				p.y = o->location.y;
 			}
@@ -1211,12 +1196,12 @@ bool get_valid_teleport_coords(tile_t *t, struct list *l) {
 			s = TRUE;
 		}
 	}
-	if (s && DISTANCE(p, bot.location) > MAX_TELEPORT_DISTANCE) {
+	if (s && DISTANCE(p, me.obj.location) > MAX_TELEPORT_DISTANCE) {
 		s = FALSE;
 		d = get_corresponding_tile_data(c_tiles_data, &c);
 		if (d) {
 			if (get_walkable_coords(d, &c, &q, &p)) {
-				s = (DISTANCE(q, p) <= MAX_TELEPORT_DISTANCE && DISTANCE(q, bot.location) <= MAX_TELEPORT_DISTANCE);
+				s = (DISTANCE(q, p) <= MAX_TELEPORT_DISTANCE && DISTANCE(q, me.obj.location) <= MAX_TELEPORT_DISTANCE);
 				print("q set here\n");
 			}
 		}
@@ -1234,7 +1219,7 @@ bool get_valid_teleport_coords(tile_t *t, struct list *l) {
 					q.y = o->location.y;
 				}
 			}
-			s = (DISTANCE(q, p) <= MAX_TELEPORT_DISTANCE && DISTANCE(q, bot.location) <= MAX_TELEPORT_DISTANCE);
+			s = (DISTANCE(q, p) <= MAX_TELEPORT_DISTANCE && DISTANCE(q, me.obj.location) <= MAX_TELEPORT_DISTANCE);
 		}
 		pthread_mutex_unlock(&npcs_m);
 		if (!s) {
@@ -1277,8 +1262,8 @@ bool get_valid_teleport_coords(tile_t *t, struct list *l) {
 				s = TRUE;
 			}
 			if (s) {
-				if (DISTANCE(q, bot.location) > MAX_TELEPORT_DISTANCE) {
-					word off = (word) ceil((double) (DISTANCE(q, bot.location) - MAX_TELEPORT_DISTANCE) / 2);
+				if (DISTANCE(q, me.obj.location) > MAX_TELEPORT_DISTANCE) {
+					word off = (word) ceil((double) (DISTANCE(q, me.obj.location) - MAX_TELEPORT_DISTANCE) / 2);
 					q.x -= off;
 					q.y -= off;
 				}
@@ -1298,7 +1283,7 @@ bool get_valid_teleport_coords(tile_t *t, struct list *l) {
 	point_t p;
 	point_t target = { 0, 0 };
 	struct list valid_coords = list_new(point_t);
-	list_add(&valid_coords, &bot.location);
+	list_add(&valid_coords, &(me.obj.location));
 	if (c.adjacent.north) {
 		p.x = TILE_TO_WORLD(c.x + (c.size / 2));
 		p.y = TILE_TO_WORLD(c.y + (c.size - 1));
@@ -1399,13 +1384,13 @@ bool get_valid_teleport_coords(tile_t *t, struct list *l) {
 			if (!s) {
 				target = *q;
 				s = TRUE;
-			} else if (DISTANCE(*q, bot.location) < DISTANCE(target, bot.location)) {
+			} else if (DISTANCE(*q, me.obj.location) < DISTANCE(target, me.obj.location)) {
 				target = *q;
 			}
 		}
 	}
 	}
-	s = dijkstra2(&valid_coords, &bot.location, &target, l);
+	s = dijkstra2(&valid_coords, &(me.obj.location), &target, l);
 	if (!s) {
 	it = list_iterator(&valid_coords);
 	point_t *q;
@@ -1705,48 +1690,48 @@ int d2gs_char_location_update(void *p) {
 	switch (packet->id) {
 
 		case 0x15: { // received packet
-			if (bot.id == net_get_data(packet->data, 1, dword)) {
-				word x = bot.location.x;
-				word y = bot.location.y;
-				bot.location.x = net_get_data(packet->data, 5, word);
-				bot.location.y = net_get_data(packet->data, 7, word);
-				if (x != bot.location.x || y != bot.location.y) {
+			if (me.obj.id == net_get_data(packet->data, 1, dword)) {
+				word x = me.obj.location.x;
+				word y = me.obj.location.y;
+				me.obj.location.x = net_get_data(packet->data, 5, word);
+				me.obj.location.y = net_get_data(packet->data, 7, word);
+				if (x != me.obj.location.x || y != me.obj.location.y) {
 					pthread_mutex_lock(&teleport_m);
 					pthread_cond_signal(&teleport_cv);
 					pthread_mutex_unlock(&teleport_m);
 				}
 				// by adding the bot (coordinates possibly corrected by the server) to the tile's npc list
 				// we should be able to remember even more valid teleport spots
-				tile_add_npc(bot.location.x, bot.location.y, bot.id);
+				tile_add_npc(me.obj.location.x, me.obj.location.y, me.obj.id);
 			}
 		}
 		break;
 
 		case 0x95: { // received packet
-			bot.location.x = net_extract_bits(packet->data, 45, 15);
-			bot.location.y = net_extract_bits(packet->data, 61, 15);
-			tile_add_npc(bot.location.x, bot.location.y, bot.id);
+			me.obj.location.x = net_extract_bits(packet->data, 45, 15);
+			me.obj.location.y = net_extract_bits(packet->data, 61, 15);
+			tile_add_npc(me.obj.location.x, me.obj.location.y, me.obj.id);
 		}
 		break;
 
 		case 0x01:
 		case 0x03: { // sent packets
-			bot.location.x = net_get_data(packet->data, 0, word);
-			bot.location.y = net_get_data(packet->data, 2, word);
+			me.obj.location.x = net_get_data(packet->data, 0, word);
+			me.obj.location.y = net_get_data(packet->data, 2, word);
 		}
 		break;
 
 		/*case 0x0c: { // sent packet
 			//if (cur_rskill == 0x36) {
-				bot.location.x = net_get_data(packet->data, 0, word);
-				bot.location.y = net_get_data(packet->data, 2, word);
+				me.obj.location.x = net_get_data(packet->data, 0, word);
+				me.obj.location.y = net_get_data(packet->data, 2, word);
 			//}
 		}
 		break;*/
 
 	}
 
-	plugin_debug("pathing", "bot at %i/%i\n", bot.location.x, bot.location.y);
+	plugin_debug("pathing", "bot at %i/%i\n", me.obj.location.x, me.obj.location.y);
 
 	return FORWARD_PACKET;
 }
@@ -1794,11 +1779,11 @@ int process_incoming_packet(void *p) {
 		word x = net_get_data(packet->data, 21, word);
 		word y = net_get_data(packet->data, 23, word);
 		if (!x && !y) {
-			bot.id = net_get_data(packet->data, 0, dword);
-		} else if (bot.id == net_get_data(packet->data, 0, dword)) {
-			bot.location.x = x;
-			bot.location.y = y;
-			tile_add_npc(bot.location.x, bot.location.y, bot.id);
+			me.obj.id = net_get_data(packet->data, 0, dword);
+		} else if (me.obj.id == net_get_data(packet->data, 0, dword)) {
+			me.obj.location.x = x;
+			me.obj.location.y = y;
+			tile_add_npc(me.obj.location.x, me.obj.location.y, me.obj.id);
 		}
 		break;
 	}
@@ -1814,8 +1799,6 @@ _export void * module_thread(void *arg) {
 }
 
 _export void module_cleanup() {
-	memset(&bot, 0, sizeof(object_t));
-
 	int i;
 	for (i = 0; i < 0xFF; i++) {
 		struct iterator it = list_iterator(&tiles[i]);
