@@ -43,26 +43,26 @@ static char *message[] = {
 static void internal_dump_packet(internal_packet_t packet) {
 	if (packet.id == BNCS_ENGINE_MESSAGE) {
 		print("BNCS_ENGINE_MESSAGE: ");
-		if (*(dword *)packet.data <= ENGINE_STARTUP && *(dword *)packet.data >= MODULES_CLEANUP) {
+		if (*(dword *)packet.data >= ENGINE_STARTUP && *(dword *)packet.data <= MODULES_CLEANUP) {
 			print("%s", message[*(dword *)packet.data]);
 		} else {
-			print("unkown ID");
+			print("unkown ID %d", *(dword *)packet.data);
 		}
 		print("\n");
 	} else if (packet.id == MCP_ENGINE_MESSAGE) {
 		print("MCP_ENGINE_MESSAGE: ");
-		if (*(dword *)packet.data <= ENGINE_STARTUP && *(dword *)packet.data >= MODULES_CLEANUP) {
+		if (*(dword *)packet.data >= ENGINE_STARTUP && *(dword *)packet.data <= MODULES_CLEANUP) {
 			print("%s", message[*(dword *)packet.data]);
 		} else {
-			print("unkown ID");
+			print("unkown ID %d", *(dword *)packet.data);
 		}
 		print("\n");
 	} else if (packet.id == D2GS_ENGINE_MESSAGE) {
 		print("D2GS_ENGINE_MESSAGE: ");
-		if (*(dword *)packet.data <= ENGINE_STARTUP && *(dword *)packet.data >= MODULES_CLEANUP) {
+		if (*(dword *)packet.data >= ENGINE_STARTUP && *(dword *)packet.data <= MODULES_CLEANUP) {
 			print("%s", message[*(dword *)packet.data]);
 		} else {
-			print("unkown ID");
+			print("unkown ID %d", *(dword *)packet.data);
 		}
 		print("\n");
 	} else if (packet.id == INTERNAL_FATAL_ERROR) {

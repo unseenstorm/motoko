@@ -1693,8 +1693,8 @@ int d2gs_char_location_update(void *p) {
 			if (me.obj.id == net_get_data(packet->data, 1, dword)) {
 				word x = me.obj.location.x;
 				word y = me.obj.location.y;
-				me.obj.location.x = net_get_data(packet->data, 5, word);
-				me.obj.location.y = net_get_data(packet->data, 7, word);
+				me_set_x(net_get_data(packet->data, 5, word));
+				me_set_y(net_get_data(packet->data, 7, word));
 				if (x != me.obj.location.x || y != me.obj.location.y) {
 					pthread_mutex_lock(&teleport_m);
 					pthread_cond_signal(&teleport_cv);
@@ -1708,23 +1708,23 @@ int d2gs_char_location_update(void *p) {
 		break;
 
 		case 0x95: { // received packet
-			me.obj.location.x = net_extract_bits(packet->data, 45, 15);
-			me.obj.location.y = net_extract_bits(packet->data, 61, 15);
+			me_set_x(net_extract_bits(packet->data, 45, 15));
+			me_set_y(net_extract_bits(packet->data, 61, 15));
 			tile_add_npc(me.obj.location.x, me.obj.location.y, me.obj.id);
 		}
 		break;
 
 		case 0x01:
 		case 0x03: { // sent packets
-			me.obj.location.x = net_get_data(packet->data, 0, word);
-			me.obj.location.y = net_get_data(packet->data, 2, word);
+			me_set_x(net_get_data(packet->data, 0, word));
+			me_set_y(net_get_data(packet->data, 2, word));
 		}
 		break;
 
 		/*case 0x0c: { // sent packet
 			//if (cur_rskill == 0x36) {
-				me.obj.location.x = net_get_data(packet->data, 0, word);
-				me.obj.location.y = net_get_data(packet->data, 2, word);
+				me_set_x(net_get_data(packet->data, 0, word));
+				me_set_y(net_get_data(packet->data, 2, word));
 			//}
 		}
 		break;*/
@@ -1779,10 +1779,10 @@ int process_incoming_packet(void *p) {
 		word x = net_get_data(packet->data, 21, word);
 		word y = net_get_data(packet->data, 23, word);
 		if (!x && !y) {
-			me.obj.id = net_get_data(packet->data, 0, dword);
+			me_set_id(net_get_data(packet->data, 0, dword));
 		} else if (me.obj.id == net_get_data(packet->data, 0, dword)) {
-			me.obj.location.x = x;
-			me.obj.location.y = y;
+			me_set_x(x);
+			me_set_y(y);
 			tile_add_npc(me.obj.location.x, me.obj.location.y, me.obj.id);
 		}
 		break;
