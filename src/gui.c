@@ -87,13 +87,14 @@ static void ui_wprint(WINDOW *w, int c, char *format, ...) {
 */
 
 _export void ui_print(int c, char *format, ...) {
-	(void)c;
 	pthread_mutex_lock(&console_mutex);
 
 	va_list args;
 	va_start(args, format);
 
+	COLOR(c);
 	vprintf(format, args);
+	COLOR_RESET();
 
 	va_end(args);
 
@@ -133,15 +134,19 @@ _export void ui_print(int c, char *format, ...) {
 }
 
 _export void ui_print_plugin(int c, char *p, char *format, ...) {
-	(void)c;
 	pthread_mutex_lock(&console_mutex);
 
+	COLOR(c);
+	BOLD();
 	printf("[plugin %s] ", p);
+	COLOR_RESET();
 
 	va_list args;
 	va_start(args, format);
 
+	COLOR(c);
 	vprintf(format, args);
+	COLOR_RESET();
 
 	va_end(args);
 
@@ -160,19 +165,23 @@ _export void ui_print_plugin(int c, char *p, char *format, ...) {
 }
 
 _export void ui_print_debug(int c, char *format, ...) {
-	(void)c;
 	if (!setting("Debug")->b_var) {
 		return;
 	}
 
 	pthread_mutex_lock(&console_mutex);
 
+	COLOR(c);
+	BOLD();
 	printf("DEBUG: ");
+	COLOR_RESET();
 
 	va_list args;
 	va_start(args, format);
 
+	COLOR(c);
 	vprintf(format, args);
+	COLOR_RESET();
 
 	va_end(args);
 
@@ -191,19 +200,23 @@ _export void ui_print_debug(int c, char *format, ...) {
 }
 
 _export void ui_print_debug_plugin(int c, char *p, char *format, ...) {
-	(void)c;
 	if (!setting("Debug")->b_var) {
 		return;
 	}
 
 	pthread_mutex_lock(&console_mutex);
 
+	COLOR(c);
+	BOLD();
 	printf("DEBUG: [plugin %s] ", p);
+	COLOR_RESET();
 
 	va_list args;
 	va_start(args, format);
 
+	COLOR(c);
 	vprintf(format, args);
+	COLOR_RESET();
 
 	va_end(args);
 

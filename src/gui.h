@@ -21,15 +21,19 @@
 #define USER_INTERFACE_H_
 
 typedef enum {
-	UI_BLACK,
-	UI_RED,
-	UI_GREEN,
-	UI_YELLOW,
-	UI_BLUE,
-	UI_MAGENTA,
-	UI_CYAN,
-	UI_WHITE
+	UI_BLACK = 0,
+	UI_RED = 1,
+	UI_GREEN = 2,
+	UI_YELLOW = 3,
+	UI_BLUE = 4,
+	UI_MAGENTA = 5,
+	UI_CYAN = 6,
+	UI_WHITE = 7
 } ui_color;
+
+#define COLOR(c) if (isatty(STDOUT_FILENO)) printf("\033[3%dm", c)
+#define BOLD() if (isatty(STDOUT_FILENO)) printf("\033[1m")
+#define COLOR_RESET() if (isatty(STDOUT_FILENO)) printf("\033[0m")
 
 // exported
 void ui_console_lock();
@@ -47,19 +51,19 @@ void ui_print(int, char *, ...);
 // exported
 void ui_print_plugin(int, char *, char *, ...);
 
-#define plugin_print(p, f, s...) ui_print_plugin(UI_CYAN, p, f, ## s)
+#define plugin_print(p, f, s...) ui_print_plugin(UI_GREEN, p, f, ## s)
 
 #define plugin_error(p, f, s...) ui_print_plugin(UI_RED, p, f, ## s)
 
 // exported
 void ui_print_debug(int, char *, ...);
 
-#define debug(f, s...) ui_print_debug(UI_MAGENTA, f, ## s)
+#define debug(f, s...) ui_print_debug(UI_YELLOW, f, ## s)
 
 // exported
 void ui_print_debug_plugin(int, char *, char *, ...);
 
-#define plugin_debug(p, f, s...) ui_print_debug_plugin(UI_MAGENTA, p, f, ## s)
+#define plugin_debug(p, f, s...) ui_print_debug_plugin(UI_YELLOW, p, f, ## s)
 
 typedef void (*ui_cmd_t)(int, char **);
 
