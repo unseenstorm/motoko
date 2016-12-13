@@ -26,7 +26,7 @@
 
 #include <pthread.h>
 
-typedef void (*extension_interface_t)(char *, ...);
+typedef bool (*extension_interface_t)(char *, ...);
 
 typedef struct {
 	char *name;

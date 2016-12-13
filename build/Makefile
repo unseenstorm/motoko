@@ -36,7 +36,9 @@ C_D2GS_DCLONE =		d2gs_dclone.c
 C_D2GS_RECORD =		d2gs_record.c	\
 					replay.c
 
-C_D2GS_CHICKEN =	d2gs_chicken.c
+C_D2GS_CHICKEN =	d2gs_chicken.c	\
+					town.c			\
+					precast.c
 
 C_D2GS_PES =		d2gs_pes.c
 
@@ -164,6 +166,12 @@ I_DIR = -I .											\
 		-I $(ROOT_DIR)/src/data							\
 		-I $(ROOT_DIR)/lib/util/include					\
 		-I $(ROOT_DIR)/lib/plugins/d2gs_pathing			\
+		-I $(ROOT_DIR)/lib/plugins/d2gs_chicken			\
+		-I $(ROOT_DIR)/lib/plugins/d2gs_chest			\
+		-I $(ROOT_DIR)/lib/plugins/d2gs_dclone			\
+		-I $(ROOT_DIR)/lib/plugins/d2gs_meph			\
+		-I $(ROOT_DIR)/lib/plugins/d2gs_pes				\
+		-I $(ROOT_DIR)/lib/plugins/d2gs_pickit			\
 		-I $(ROOT_DIR)/lib/plugins/d2gs_record/replay
 
 #		-I $(ROOT_DIR)/lib/libwardenc					\

@@ -22,6 +22,9 @@
 
 #include <util/types.h>
 #include <util/net.h>
+#include <util/system.h>
+#include <util/list.h>
+#include <util/string.h>
 
 #include <arpa/inet.h>
 #include <pthread.h>
@@ -39,6 +42,8 @@
 
 #include <config.h>
 
+#include <math.h>
+
 #include "internal.h"
 #include "bncs.h"
 #include "settings.h"
@@ -48,6 +53,10 @@
 #include "gui.h"
 #include "d2gs.h"
 
+#define module_setting(name) ((struct setting *)list_find(&module_settings_list, (comparator_t) compare_setting, name))
+#define object_clear(o) memset(&(o), 0, sizeof(object_t))
+
+#define FATAL(expr) if (!(expr)) return FALSE
 
 #define MIN_WALKING_DISTANCE  3
 #define MAX_WALKING_DISTANCE  35
@@ -70,6 +79,17 @@
 #define ACT(area) (IN_ACT1(area) ? 1 : (IN_ACT2(area) ? 2 : (IN_ACT3(area) ? 3 : (IN_ACT4(area) ? 4 : 5))))
 #define TOWN_AREA(act) (act == 1 ? 1 : (act == 2 ? 40 : (act == 3 ? 75 : (act == 4 ? 103 : 109))))
 
+typedef enum {
+	VOID = 0,
+	WP,
+	TP,
+	ORMUS,
+	FARA,
+	LYSANDER,
+	GREIZ
+} e_town_move;
+
+
 typedef struct {
 	word x;
 	word y;
@@ -90,36 +110,54 @@ typedef struct {
 	byte act; //act is updated before area
 	byte ingame;
 	byte intown;
+	word lskill;
+	word rskill;
 } bot_t;
 
 
-#define SETTER_PROTO(type, name) void me_set_##name(type)
-#define SETTER(type, name) void me_set_##name(type _##name) {	\
-		if (me.name == _##name) {								\
-			return;												\
-		}														\
-		pthread_mutex_lock(&me_m);								\
-		me.name = _##name;										\
-		pthread_mutex_unlock(&me_m);							\
-		plugin_debug("me", "me."#name" updated\n");				\
-		me_debug();												\
+#define SETTER_PROTO(obj, type, name) void obj##_set_##name(type)
+#define SETTER(obj, type, name) void obj##_set_##name(type _##name) {	\
+		if (obj.name == _##name) {										\
+			return;														\
+		}																\
+		pthread_mutex_lock(&me_m);										\
+		obj.name = _##name;												\
+		pthread_mutex_unlock(&me_m);									\
+		plugin_debug("me", #obj"."#name" updated\n");					\
+		me_debug();														\
 	}
 
-SETTER_PROTO(dword, id);
-SETTER_PROTO(word, x);
-SETTER_PROTO(word, y);
-SETTER_PROTO(dword, gold);
-SETTER_PROTO(word, ping);
-SETTER_PROTO(word, hp);
-SETTER_PROTO(word, mp);
-SETTER_PROTO(byte, area);
-SETTER_PROTO(byte, act);
-SETTER_PROTO(byte, ingame);
-SETTER_PROTO(byte, intown);
+SETTER_PROTO(me, dword, id);
+SETTER_PROTO(me, word, x);
+SETTER_PROTO(me, word, y);
+SETTER_PROTO(me, dword, gold);
+SETTER_PROTO(me, word, ping);
+SETTER_PROTO(me, word, hp);
+SETTER_PROTO(me, word, mp);
+SETTER_PROTO(me, byte, area);
+SETTER_PROTO(me, byte, act);
+SETTER_PROTO(me, byte, ingame);
+SETTER_PROTO(me, byte, intown);
+SETTER_PROTO(me, word, lskill);
+SETTER_PROTO(me, word, rskill);
 
 void me_debug(void);
 void me_init(void);
 void me_finit(void);
 
+void me_leave(void);
+
+void me_cast_self(object_t *obj, dword arg);
+void me_cast_right(object_t *obj, dword arg);
+void me_cast_left(object_t *obj, dword arg);
+void me_swap_right(object_t *obj, dword arg);
+void me_swap_left(object_t *obj, dword arg);
+
+bool me_walk(int x, int y);
+bool me_teleport(int x, int y);
+
+bool me_move(int x, int y);
+
+extern bot_t me;
 
 #endif /* ME_H_ */

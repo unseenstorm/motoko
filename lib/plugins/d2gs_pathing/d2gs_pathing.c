@@ -19,47 +19,13 @@
 
 #define _PLUGIN
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
-#include <pthread.h>
-#include <dirent.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/stat.h>
-
-#include <util/compat.h>
-
-#include <module.h>
-
-#include <d2gs.h>
-#include <packet.h>
-#include <settings.h>
-#include <gui.h>
-
-#include <moduleman.h>
-
-#include <util/net.h>
-#include <util/list.h>
-#include <util/system.h>
-#include <util/string.h>
-#include <util/file.h>
-
-#include "levels.h"
-#include "exits.h"
-#include "mazes.h"
-
-#include <me.h>
-extern bot_t me;
+#include "d2gs_pathing.h"
 
 static struct setting module_settings[] = (struct setting []) {
 	SETTING("CastDelay", INTEGER, 250)
 };
 
 static struct list module_settings_list = LIST(module_settings, struct setting, 1);
-
-#define module_setting(name) ((struct setting *)list_find(&module_settings_list, (comparator_t) compare_setting, name))
 
 /* statistics */
 static int n_runs = 0;
@@ -70,83 +36,21 @@ static int n_direct_path = 0;
 static int t_total = 0;
 
 
-pthread_mutex_t teleport_m;
-pthread_cond_t teleport_cv;
-
-typedef struct {
-	object_t object;
-	byte id;
-} exit_t;
+static pthread_mutex_t teleport_m;
+static pthread_cond_t teleport_cv;
 
 static struct list exits;
 
-pthread_mutex_t exits_m;
-
-#define SCALE 5
-
-#define TILE_TO_WORLD(c) ((c) * SCALE)
-#define WORLD_TO_TILE(c) ((c) / SCALE)
-
-typedef struct _tile_t {
-	word x;
-	word y;
-	int size;
-	bool visited;
-	struct {
-		struct _tile_t *north;
-		struct _tile_t *east;
-		struct _tile_t *south;
-		struct _tile_t *west;
-	} adjacent;
-	struct list *objects;
-	struct list *npcs;
-} tile_t;
+static pthread_mutex_t exits_m;
 
 static struct list tiles[0xFF];
 
 static struct list *c_tiles;
 
-pthread_mutex_t tiles_m;
+static pthread_mutex_t tiles_m;
 
-pthread_mutex_t objects_m;
-pthread_mutex_t npcs_m;
-
-typedef struct _node_t {
-	word x;
-	word y;
-	int size;
-	int distance;
-	bool visited;
-	struct _node_t *previous;
-} node_t;
-
-typedef struct {
-	int layout[512][512];
-	point_t origin;
-	int width;
-	int height;
-	int size;
-} room_layout_t;
-
-#define MAX_TILE_SIZE 14
-
-enum {
-	NORTH = 0, EAST, SOUTH, WEST, NORTHEAST, NORTHWEST, SOUTHEAST, SOUTHWEST
-};
-
-typedef struct {
-	unsigned n_events;
-	double p_north;
-	double p_east;
-	double p_south;
-	double p_west;
-	bool north;
-	bool east;
-	bool south;
-	bool west;
-	word objects[MAX_TILE_SIZE][MAX_TILE_SIZE];
-	bool walkable[MAX_TILE_SIZE][MAX_TILE_SIZE];
-} tile_data_t;
+static pthread_mutex_t objects_m;
+static pthread_mutex_t npcs_m;
 
 static struct list tiles_data[0xFF];
 
@@ -159,7 +63,7 @@ static const unsigned short object_filter[] = {
 	119, 145, 156, 157, 237, 238, 288, 323, 324, 398, 402, 429, 494, 496, 511, 539 // waypoints
 };
 
-bool is_valid_object_code(unsigned short code) {
+static bool is_valid_object_code(unsigned short code) {
 	unsigned int i;
 	for (i = 0; i < sizeof(object_filter) / sizeof(unsigned short); i++) {
 		if (code == object_filter[i]) return TRUE;
@@ -167,17 +71,17 @@ bool is_valid_object_code(unsigned short code) {
 	return FALSE;
 }
 
-void set_object_mask(tile_data_t *d, tile_t *t, word code, word x, word y) {
+static void set_object_mask(tile_data_t *d, tile_t *t, word code, word x, word y) {
 	if (is_valid_object_code(code)) {
 		d->objects[WORLD_TO_TILE(x) - t->x][WORLD_TO_TILE(y) - t->y] = code;
 	}
 }
 
-void set_walkable_mask(tile_data_t *d, tile_t *t, word x, word y) {
+static void set_walkable_mask(tile_data_t *d, tile_t *t, word x, word y) {
 	d->walkable[WORLD_TO_TILE(x) - t->x][WORLD_TO_TILE(y) - t->y] = TRUE;
 }
 
-void update_walkable_mask(tile_data_t *d, tile_t *t) {
+static void update_walkable_mask(tile_data_t *d, tile_t *t) {
 	pthread_mutex_lock(&npcs_m);
 	struct iterator it = list_iterator(t->npcs);
 	object_t *o;
@@ -187,14 +91,14 @@ void update_walkable_mask(tile_data_t *d, tile_t *t) {
 	pthread_mutex_unlock(&npcs_m);
 }
 
-void set_adjacent_tiles(tile_data_t *d, tile_t *t) {
+static void set_adjacent_tiles(tile_data_t *d, tile_t *t) {
 	d->north = t->adjacent.north ? TRUE : FALSE;
 	d->east = t->adjacent.east ? TRUE : FALSE;
 	d->south = t->adjacent.south ? TRUE : FALSE;
 	d->west = t->adjacent.west ? TRUE : FALSE;
 }
 
-void set_direction_probabilites(tile_data_t *d, tile_t *t, exit_t *exit) {
+static void set_direction_probabilites(tile_data_t *d, tile_t *t, exit_t *exit) {
 	if (d->n_events > 0xFFFFFFFE) {
 		return; // n_events overflow
 	}
@@ -219,7 +123,8 @@ void set_direction_probabilites(tile_data_t *d, tile_t *t, exit_t *exit) {
 	d->p_west = (double) n_west / d->n_events;
 }
 
-bool get_walkable_coords(tile_data_t *d, tile_t *t, point_t *p, point_t *q) {
+/* TODO: use me :D
+static bool get_walkable_coords(tile_data_t *d, tile_t *t, point_t *p, point_t *q) {
 	bool s = FALSE;
 	int i, j;
 	for (i = 0; i < MAX_TILE_SIZE; i++) {
@@ -256,8 +161,9 @@ bool get_walkable_coords(tile_data_t *d, tile_t *t, point_t *p, point_t *q) {
 	}
 	return s;
 }
+*/
 
-bool compare_tile_data_to_tile(tile_data_t *d, tile_t *t) {
+static bool compare_tile_data_to_tile(tile_data_t *d, tile_t *t) {
 	bool r = (t->adjacent.north ? d->north : !d->north) && \
 	         (t->adjacent.east ? d->east : !d->east) && \
 		 (t->adjacent.south ? d->south : !d->south) && \
@@ -274,11 +180,11 @@ bool compare_tile_data_to_tile(tile_data_t *d, tile_t *t) {
 	return r;
 }
 
-tile_data_t * get_corresponding_tile_data(struct list *l, tile_t *t) {
+static tile_data_t * get_corresponding_tile_data(struct list *l, tile_t *t) {
 	return list_find(l, (comparator_t) compare_tile_data_to_tile, t);
 }
 
-tile_data_t * tile_data_new(tile_data_t *d, tile_t *t) {
+static tile_data_t * tile_data_new(tile_data_t *d, tile_t *t) {
 	memset(d, 0, sizeof(tile_data_t));
 	d->n_events = 0;
 	d->p_north = d->p_east = d->p_south = d->p_west = 0;
@@ -300,7 +206,7 @@ tile_data_t * tile_data_new(tile_data_t *d, tile_t *t) {
 	return d;
 }
 
-void update_tile_data(struct list *data, struct list *tiles, exit_t *exit) {
+static void update_tile_data(struct list *data, struct list *tiles, exit_t *exit) {
 	pthread_mutex_lock(&exits_m);
 	pthread_mutex_lock(&tiles_m);
 	plugin_print("pathing", "updating tile database\n");
@@ -331,7 +237,7 @@ void update_tile_data(struct list *data, struct list *tiles, exit_t *exit) {
 	if (i) plugin_print("pathing", "added %i tile(s) to database\n", i);
 }
 
-int level_get_id_from_string(const char *s_level) {
+static int level_get_id_from_string(const char *s_level) {
 	unsigned int i;
 	for (i = 0; i < sizeof(levels) / sizeof(level_t); i++) {
 		if (string_compare(levels[i].name, (char *) s_level, FALSE)) return i;
@@ -343,7 +249,7 @@ const char * level_get_string_from_id(int i) {
 	return i >= 0 && (unsigned int)i < sizeof(levels) / sizeof(level_t) ? levels[i].name : "(null)";
 }
 
-void load_tile_data(struct list *data, const char *tilesdir) {
+static void load_tile_data(struct list *data, const char *tilesdir) {
 	DIR *tiles = opendir(tilesdir);
 	if (!tiles) return;
 	struct dirent *tile;
@@ -370,7 +276,7 @@ void load_tile_data(struct list *data, const char *tilesdir) {
 	closedir(tiles);
 }
 
-void save_tile_data(struct list *data, const char *tilesdir) {
+static void save_tile_data(struct list *data, const char *tilesdir) {
 	int i;
 	for (i = 0; i < 0xFF; i++) {
 		if (list_size(&data[i])) {
@@ -397,16 +303,14 @@ void save_tile_data(struct list *data, const char *tilesdir) {
 	}
 }
 
-void exit_add(dword id, word x, word y, byte exit_id) {
+static void exit_add(dword id, word x, word y, byte exit_id) {
 	pthread_mutex_lock(&exits_m);
 	exit_t e = { { id, { x, y } }, exit_id };
 	list_add(&exits, &e);
 	pthread_mutex_unlock(&exits_m);
 }
 
-//#define tile_new(x, y, s) (tile_t) { x, y, s, FALSE, .adjacent.north = NULL, .adjacent.east = NULL, .adjacent.south = NULL, .adjacent.west = NULL, .objects = LIST(NULL, object_t, 0), .npcs = LIST(NULL, object_t, 0) }
-
-tile_t tile_new(word x, word y, int s) {
+static tile_t tile_new(word x, word y, int s) {
 	tile_t t = { x, y, s, FALSE, { NULL, NULL, NULL, NULL }, NULL, NULL };
 	t.objects = (struct list *) malloc(sizeof(struct list));
 	*t.objects = list_new(object_t);
@@ -415,23 +319,14 @@ tile_t tile_new(word x, word y, int s) {
 	return t;
 }
 
-void tile_destroy(tile_t *t) {
+static void tile_destroy(tile_t *t) {
 	list_clear(t->objects);
 	free(t->objects);
 	list_clear(t->npcs);
 	free(t->npcs);
 }
 
-// y seems to grow to south
-#define northof(a, b) (((a)->x == (b)->x) && ((a)->y == (b)->y + (b)->size))
-#define eastof(a, b) (((a)->y == (b)->y) && ((a)->x == (b)->x + (b)->size))
-#define southof(a, b) (((a)->x == (b)->x) && ((a)->y == (b)->y - (b)->size))
-#define westof(a, b) (((a)->y == (b)->y) && ((a)->x == (b)->x - (b)->size))
-
-#define tile_contains(t, o) (((o)->location.x >= (t)->x * SCALE) && ((o)->location.x < ((t)->x + (t)->size) * SCALE) &&\
-                             ((o)->location.y >= (t)->y * SCALE) && ((o)->location.y < ((t)->y + (t)->size) * SCALE))
-
-bool tile_check_for_exit(tile_t *t, const char *exit, exit_t *r) {
+static bool tile_check_for_exit(tile_t *t, const char *exit, exit_t *r) {
 	bool s = FALSE;
 	pthread_mutex_lock(&exits_m);
 	struct iterator it = list_iterator(&exits);
@@ -456,11 +351,11 @@ bool tile_check_for_exit(tile_t *t, const char *exit, exit_t *r) {
 	return s;
 }
 
-int tile_compare(tile_t *a, tile_t *b) {
+static int tile_compare(tile_t *a, tile_t *b) {
 	return ((a->x == b->x) && (a->y == b->y));
 }
 
-void move_layout_x(room_layout_t *layout, int x) {
+static void move_layout_x(room_layout_t *layout, int x) {
 	layout->width += x;
 	int i, j;
 	/*for (j = 0; j < layout->height; j++) {
@@ -486,7 +381,7 @@ void move_layout_x(room_layout_t *layout, int x) {
 	layout->origin.x -= (layout->size * x);
 }
 
-void move_layout_y(room_layout_t *layout, int y) {
+static void move_layout_y(room_layout_t *layout, int y) {
 	layout->height += y;
 	int i, j;
 	/*for (i = 0; i < layout->width; i++) {
@@ -512,12 +407,7 @@ void move_layout_y(room_layout_t *layout, int y) {
 	layout->origin.y -= (layout->size * y);
 }
 
-#define north(l, x, y) ((y) > 0 && (l)->layout[(x)][(y) - 1])
-#define west(l, x, y) ((x) > 0 && (l)->layout[(x) - 1][(y)])
-#define south(l, x, y) ((l)->layout[(x)][(y) + 1])
-#define east(l, x, y) ((l)->layout[(x) + 1][(y)])
-
-void add_room(room_layout_t *layout, point_t *room) {
+static void add_room(room_layout_t *layout, point_t *room) {
 	if (layout->origin.x == 0 && layout->origin.y == 0) {
 		//memcpy(&(layout->origin), &room, sizeof(point_t));
 		layout->origin.x = room->x;
@@ -543,7 +433,7 @@ void add_room(room_layout_t *layout, point_t *room) {
 	}
 }
 
-void dump_room_layout_simple(room_layout_t *layout, struct list *tiles) {
+static void dump_room_layout_simple(room_layout_t *layout, struct list *tiles) {
 	int i, j;
 	for (j = 0; j < layout->height; j++) {
 		for (i = 0; i < layout->width; i++) {
@@ -578,7 +468,7 @@ void dump_room_layout_simple(room_layout_t *layout, struct list *tiles) {
 	}
 }
 
-void dump_tiles(struct list *tiles) {
+static void dump_tiles(struct list *tiles) {
 	pthread_mutex_lock(&tiles_m);
 	ui_console_lock();
 	plugin_print("pathing", "tile layout (%i tile(s)):\n", list_size(tiles));
@@ -608,7 +498,7 @@ void dump_tiles(struct list *tiles) {
 	pthread_mutex_unlock(&tiles_m);
 }
 
-void update_adjacent_tiles(struct list *tiles) {
+static void update_adjacent_tiles(struct list *tiles) {
 	struct iterator it = list_iterator(tiles);
 	tile_t *t;
 	while ((t = iterator_next(&it))) {
@@ -655,7 +545,7 @@ void update_adjacent_tiles(struct list *tiles) {
 	}
 }
 
-int get_tile_size_by_area(byte area) {
+static int get_tile_size_by_area(byte area) {
 	if (levels[area].type == 1) { // maze
 		if (mazes[area][0] < MAX_TILE_SIZE && mazes[area][1] < MAX_TILE_SIZE) {
 			return mazes[area][1]; // fuck, area 28 isn't symmetric (10/14)
@@ -667,7 +557,7 @@ int get_tile_size_by_area(byte area) {
 	}
 }
 
-void tile_add(word x, word y, byte area) {
+static void tile_add(word x, word y, byte area) {
 	tile_t new = tile_new(x, y, get_tile_size_by_area(area)); // retrieve tile size corresponding to area
 	tile_t *t = list_find(&tiles[area], (comparator_t) tile_compare, &new);
 	if (tile_contains(&new, &(me.obj))) {
@@ -686,7 +576,7 @@ void tile_add(word x, word y, byte area) {
 	}
 }
 
-void tile_add_object(word x, word y, word code) {
+static void tile_add_object(word x, word y, word code) {
 	object_t o = { code, { x, y } };
 	int i;
 	for (i = 0; i < 0xFF; i++) {
@@ -703,7 +593,7 @@ void tile_add_object(word x, word y, word code) {
 	}
 }
 
-void tile_add_npc(word x, word y, dword id) {
+static void tile_add_npc(word x, word y, dword id) {
 	object_t o = { id, { x, y } };
 	int i;
 	for (i = 0; i < 0xFF; i++) {
@@ -720,7 +610,7 @@ void tile_add_npc(word x, word y, dword id) {
 	}
 }
 
-tile_t * get_current_tile(tile_t *c) {
+static tile_t * get_current_tile(tile_t *c) {
 	pthread_mutex_lock(&tiles_m);
 	struct iterator it = list_iterator(c_tiles);
 	tile_t *t;
@@ -737,7 +627,7 @@ tile_t * get_current_tile(tile_t *c) {
 	return NULL;
 }
 
-void set_current_tile_visited() {
+static void set_current_tile_visited() {
 	pthread_mutex_lock(&tiles_m);
 	struct iterator it = list_iterator(c_tiles);
 	tile_t *t;
@@ -749,7 +639,7 @@ void set_current_tile_visited() {
 	pthread_mutex_unlock(&tiles_m);
 }
 
-bool get_closest_new_tile(tile_t *c, tile_t *r) {
+static bool get_closest_new_tile(tile_t *c, tile_t *r) {
 	bool s = FALSE;
 	struct iterator it = list_iterator(c_tiles);
 	tile_t *t;
@@ -769,7 +659,7 @@ bool get_closest_new_tile(tile_t *c, tile_t *r) {
 	return s;
 }
 
-bool check_tile_direction(tile_t *c, tile_t *t, int direction) {
+static bool check_tile_direction(tile_t *c, tile_t *t, int direction) {
 	switch (direction) {
 		case NORTH: return (t->y > c->y && t->x == c->x);
 		case EAST: return (t->y == c->y && t->x > c->x);
@@ -783,7 +673,7 @@ bool check_tile_direction(tile_t *c, tile_t *t, int direction) {
 	return FALSE;
 }
 
-bool is_better_pick(tile_t *c, tile_t *t, tile_t *r, int *direction) {
+static bool is_better_pick(tile_t *c, tile_t *t, tile_t *r, int *direction) {
 	int i;
 	for (i = 0; i < 8; i++) {
 		if (check_tile_direction(c, t, direction[i]) && check_tile_direction(c, r, direction[i])) {
@@ -797,7 +687,7 @@ bool is_better_pick(tile_t *c, tile_t *t, tile_t *r, int *direction) {
 	return FALSE;
 }
 
-bool get_closest_new_tile_in_direction(tile_t *c, tile_t *r, int *direction) {
+static bool get_closest_new_tile_in_direction(tile_t *c, tile_t *r, int *direction) {
 	bool s = FALSE;
 	struct iterator it = list_iterator(c_tiles);
 	tile_t *t;
@@ -817,7 +707,7 @@ bool get_closest_new_tile_in_direction(tile_t *c, tile_t *r, int *direction) {
 	return s;
 }
 
-bool get_optimal_direction(tile_t *c, int *direction) {
+static bool get_optimal_direction(tile_t *c, int *direction) {
 	double p[8];
 	tile_data_t *d = get_corresponding_tile_data(c_tiles_data, c);
 	if (d) {
@@ -862,11 +752,11 @@ bool get_optimal_direction(tile_t *c, int *direction) {
 	return FALSE;
 }
 
-bool tile_has_adjacent(tile_t *t) {
+static bool tile_has_adjacent(tile_t *t) {
 	return (t->adjacent.north || t->adjacent.east || t->adjacent.south || t->adjacent.west);
 }
 
-bool get_next_tile(tile_t *c, tile_t *r, const char *exit) {
+static bool get_next_tile(tile_t *c, tile_t *r, const char *exit) {
 	pthread_mutex_lock(&tiles_m);
 
 	struct iterator it2 = list_iterator(c_tiles);
@@ -903,9 +793,7 @@ bool get_next_tile(tile_t *c, tile_t *r, const char *exit) {
 	return s;
 }
 
-#define list_index(l, e) ((void *) (e) >= (void *) (l)->elements && (void *) (e) < (void *) ((l)->elements + (l)->len * (l)->size) ? ((void *) (e) - (void *) (l)->elements) / (l)->size : -1) // we should inlcude this in list.c/list.h
-
-struct list * get_adjacent_nodes(struct list *nodes, node_t *n, struct list *l) {
+static struct list * get_adjacent_nodes(struct list *nodes, node_t *n, struct list *l) {
 	list_clear(l);
 	struct iterator it = list_iterator(nodes);
 	node_t *m;
@@ -917,7 +805,7 @@ struct list * get_adjacent_nodes(struct list *nodes, node_t *n, struct list *l) 
 	return l;
 }
 
-tile_t * get_corresponding_tile(struct list *tiles, node_t *n) {
+static tile_t * get_corresponding_tile(struct list *tiles, node_t *n) {
 	struct iterator it = list_iterator(tiles);
 	tile_t *t;
 	while ((t = iterator_next(&it))) {
@@ -928,7 +816,7 @@ tile_t * get_corresponding_tile(struct list *tiles, node_t *n) {
 	return NULL;
 }
 
-bool dijkstra(tile_t *source, tile_t *target, struct list *path) {
+static bool dijkstra(tile_t *source, tile_t *target, struct list *path) {
 	int i, alt;
 	struct list nodes = list_new(node_t);
 	struct list adjacent = list_new(node_t *);
@@ -1024,7 +912,7 @@ bool dijkstra(tile_t *source, tile_t *target, struct list *path) {
 	return list_size(path) > 0 ? TRUE : FALSE;
 }
 
-void teleport(int x, int y) {
+static void teleport(int x, int y) {
 	point_t p = { x, y };
 	plugin_print("pathing", "teleporting to %i/%i (%i)\n", x, y, DISTANCE(p, me.obj.location));
 
@@ -1046,7 +934,7 @@ void teleport(int x, int y) {
 
 // having two separate dijkstra functions for different input is pretty ugly, oh well :-/
 
-struct list * get_adjacent_nodes2(struct list *nodes, node_t *n, struct list *l) {
+static struct list * get_adjacent_nodes2(struct list *nodes, node_t *n, struct list *l) {
 	list_clear(l);
 	struct iterator it = list_iterator(nodes);
 	node_t *m;
@@ -1058,11 +946,11 @@ struct list * get_adjacent_nodes2(struct list *nodes, node_t *n, struct list *l)
 	return l;
 }
 
-bool point_compare(point_t *a, point_t *b) {
+static bool point_compare(point_t *a, point_t *b) {
 	return (a->x == b->x && a->y == b->y);
 }
 
-bool dijkstra2(struct list *l, point_t *source, point_t *target, struct list *path) {
+static bool dijkstra2(struct list *l, point_t *source, point_t *target, struct list *path) {
 	int i, alt;
 	struct list nodes = list_new(node_t);
 	struct list adjacent = list_new(node_t *);
@@ -1151,7 +1039,7 @@ bool dijkstra2(struct list *l, point_t *source, point_t *target, struct list *pa
 	return list_size(path) > 0 ? TRUE : FALSE;
 }
 
-bool get_valid_teleport_coords(tile_t *t, struct list *l) {
+static bool get_valid_teleport_coords(tile_t *t, struct list *l) {
 	/*bool s = FALSE;
 	point_t p, q;
 	tile_data_t *d = get_corresponding_tile_data(c_tiles_data, t);
@@ -1402,7 +1290,7 @@ bool get_valid_teleport_coords(tile_t *t, struct list *l) {
 	return s;
 }
 
-void teleport_path(struct list *path) {
+static void teleport_path(struct list *path) {
 	struct iterator it = list_iterator(path);
 	tile_t *t;
 	while ((t = iterator_next(&it))) {
@@ -1453,7 +1341,7 @@ void teleport_path(struct list *path) {
 	}
 }
 
-int get_number_of_visited_tiles(struct list *tiles) {
+static int get_number_of_visited_tiles(struct list *tiles) {
 	int i = 0;
 	pthread_mutex_lock(&tiles_m);
 	struct iterator it = list_iterator(tiles);
@@ -1465,7 +1353,7 @@ int get_number_of_visited_tiles(struct list *tiles) {
 	return i;
 }
 
-void find_level_exit(const char *level, const char *exit) {
+static bool find_level_exit(const char *level, const char *exit) {
 	time_t t_start;
 	time(&t_start);
 	n_runs++;
@@ -1473,14 +1361,14 @@ void find_level_exit(const char *level, const char *exit) {
 	int id = level_get_id_from_string(level);
 	if (id < 0) {
 		plugin_print("pathing", "failed to retrieve level ID\n");
-		return;
+		return FALSE;
 	}
 	c_tiles = &tiles[id];
 	c_tiles_data = &tiles_data[id];
 	tile_t c, t;
 	if (!get_current_tile(&c)) {
 		plugin_print("pathing", "failed to locate bot\n");
-		return;
+		return FALSE;
 	}
 	tile_t start = c; // statistic direct path
 	set_current_tile_visited();
@@ -1491,7 +1379,7 @@ void find_level_exit(const char *level, const char *exit) {
 		struct list path = list_new(tile_t);
 		if (!dijkstra(&c, &t, &path)) {
 			plugin_debug("pathing", "dijkstra failed\n");
-			return;
+			return FALSE;
 		}
 		teleport_path(&path);
 		list_clear(&path);
@@ -1526,7 +1414,7 @@ void find_level_exit(const char *level, const char *exit) {
 			time_t t_cur;
 			t_total += (int) difftime(time(&t_cur), t_start);
 
-			return;
+			return TRUE;
 		}
 		// give the server some time to add tiles and objects
 		msleep(300);
@@ -1538,66 +1426,136 @@ void find_level_exit(const char *level, const char *exit) {
 	}
 	plugin_error("pathing", "failed to find exit %s in level %s\n", exit, level);
 	update_tile_data(c_tiles_data, c_tiles, NULL);
+
+	return FALSE;
 }
 
-void find_level_exit_extension(char *caller, ...) {
+static bool find_level_exit_extension(char *caller, ...) {
 	va_list vl;
 	va_start(vl, caller);
 	const char *level = va_arg(vl, const char *);
 	const char *exit = va_arg(vl, const char *);
 	va_end(vl);
-	find_level_exit(level, exit);
+
+	return find_level_exit(level, exit);
 }
 
-int d2gs_char_location_update(void *);
-int process_incoming_packet(void *);
 
-_export const char * module_get_title() {
-	return "pathing";
-}
+/* PACKETS HANDLERS */
 
-_export const char * module_get_version() {
-	return "0.1.0";
-}
+static int d2gs_char_location_update(void *p) {
+	d2gs_packet_t *packet = D2GS_CAST(p);
 
-_export const char * module_get_author() {
-	return "gonzoj";
-}
+	switch (packet->id) {
 
-_export const char * module_get_description() {
-	return "offers an extension for other plugins that allows pathfinding in dungeons";
-}
-
-_export int module_get_license() {
-	return LICENSE_GPL_V3;
-}
-
-_export module_type_t module_get_type() {
-	return (module_type_t) { MODULE_D2GS, MODULE_PASSIVE };
-}
-
-_export bool module_load_config(struct setting_section *s) {
-	int i;
-	for (i = 0; i < s->entries; i++) {
-		struct setting *set = module_setting(s->settings[i].name);
-		if (set) {
-			/*if (s->settings[i].type == STRING) {
-				set->s_var = strdup(s->settings[i].s_var);
-				if (set->s_var) {
-					setting_cleanup_t sc = { cleanup_string_setting, set };
-					list_add(&setting_cleaners, &sc);
+		case 0x15: { // received packet
+			if (me.obj.id == net_get_data(packet->data, 1, dword)) {
+				word x = me.obj.location.x;
+				word y = me.obj.location.y;
+				me_set_x(net_get_data(packet->data, 5, word));
+				me_set_y(net_get_data(packet->data, 7, word));
+				if (x != me.obj.location.x || y != me.obj.location.y) {
+					pthread_mutex_lock(&teleport_m);
+					pthread_cond_signal(&teleport_cv);
+					pthread_mutex_unlock(&teleport_m);
 				}
-			}*/
-			if (s->settings[i].type == INTEGER && set->type == INTEGER) {
-				set->i_var = s->settings[i].i_var;
-			} else if (s->settings[i].type == STRING) {
-				if (set->type == INTEGER) {
-					sscanf(s->settings[i].s_var, "%li", &set->i_var);
-				}
+				// by adding the bot (coordinates possibly corrected by the server) to the tile's npc list
+				// we should be able to remember even more valid teleport spots
+				tile_add_npc(me.obj.location.x, me.obj.location.y, me.obj.id);
+			}
+		}
+		break;
+
+		case 0x95: { // received packet
+			me_set_x(net_extract_bits(packet->data, 45, 15));
+			me_set_y(net_extract_bits(packet->data, 61, 15));
+			tile_add_npc(me.obj.location.x, me.obj.location.y, me.obj.id);
+		}
+		break;
+
+		case 0x01:
+		case 0x03: { // sent packets
+			me_set_x(net_get_data(packet->data, 0, word));
+			me_set_y(net_get_data(packet->data, 2, word));
+		}
+		break;
+
+		case 0x0c: { // sent packet
+			if (me.rskill == 0x36) {
+				me_set_x(net_get_data(packet->data, 0, word));
+				me_set_y(net_get_data(packet->data, 2, word));
 			}
 		}
 	}
-	return TRUE;
+
+	plugin_debug("pathing", "bot at %i/%i\n", me.obj.location.x, me.obj.location.y);
+
+	return FORWARD_PACKET;
+}
+
+static int process_incoming_packet(void *p) {
+	d2gs_packet_t *packet = D2GS_CAST(p);
+
+	switch(packet->id) {
+
+	case 0x51: {
+		word code = net_get_data(packet->data, 5, word);
+		word x = net_get_data(packet->data, 7, word);
+		word y = net_get_data(packet->data, 9, word);
+		tile_add_object(x, y, code);
+		break;
+	}
+
+	case 0xac: {
+		word x = net_get_data(packet->data, 6, word);
+		word y = net_get_data(packet->data, 8, word);
+		dword id = net_get_data(packet->data, 0, dword);
+		tile_add_npc(x, y, id);
+		break;
+	}
+
+	case 0x07: {
+		byte area = net_get_data(packet->data, 4, byte);
+		word x = net_get_data(packet->data, 0, word);
+		word y = net_get_data(packet->data, 2, word);
+		tile_add(x, y, area);
+		break;
+
+	}
+
+	case 0x09: {
+		dword id = net_get_data(packet->data, 1, dword);
+		byte side = net_get_data(packet->data, 5, byte);
+		word x = net_get_data(packet->data, 6, word);
+		word y = net_get_data(packet->data, 8, word);
+		exit_add(id, x, y, side);
+		break;
+	}
+
+	case 0x59: {
+		word x = net_get_data(packet->data, 21, word);
+		word y = net_get_data(packet->data, 23, word);
+		if (!x && !y) {
+			me_set_id(net_get_data(packet->data, 0, dword));
+		} else if (me.obj.id == net_get_data(packet->data, 0, dword)) {
+			me_set_x(x);
+			me_set_y(y);
+			tile_add_npc(me.obj.location.x, me.obj.location.y, me.obj.id);
+		}
+		break;
+	}
+
+	}
+
+	return FORWARD_PACKET;
+}
+
+
+/* MODULE */
+
+_export void * module_thread(void *arg) {
+	(void)arg;
+	return NULL;
 }
 
 _export bool module_init() {
@@ -1684,120 +1642,6 @@ _export bool module_finit() {
 	return TRUE;
 }
 
-int d2gs_char_location_update(void *p) {
-	d2gs_packet_t *packet = D2GS_CAST(p);
-
-	switch (packet->id) {
-
-		case 0x15: { // received packet
-			if (me.obj.id == net_get_data(packet->data, 1, dword)) {
-				word x = me.obj.location.x;
-				word y = me.obj.location.y;
-				me_set_x(net_get_data(packet->data, 5, word));
-				me_set_y(net_get_data(packet->data, 7, word));
-				if (x != me.obj.location.x || y != me.obj.location.y) {
-					pthread_mutex_lock(&teleport_m);
-					pthread_cond_signal(&teleport_cv);
-					pthread_mutex_unlock(&teleport_m);
-				}
-				// by adding the bot (coordinates possibly corrected by the server) to the tile's npc list
-				// we should be able to remember even more valid teleport spots
-				tile_add_npc(me.obj.location.x, me.obj.location.y, me.obj.id);
-			}
-		}
-		break;
-
-		case 0x95: { // received packet
-			me_set_x(net_extract_bits(packet->data, 45, 15));
-			me_set_y(net_extract_bits(packet->data, 61, 15));
-			tile_add_npc(me.obj.location.x, me.obj.location.y, me.obj.id);
-		}
-		break;
-
-		case 0x01:
-		case 0x03: { // sent packets
-			me_set_x(net_get_data(packet->data, 0, word));
-			me_set_y(net_get_data(packet->data, 2, word));
-		}
-		break;
-
-		/*case 0x0c: { // sent packet
-			//if (cur_rskill == 0x36) {
-				me_set_x(net_get_data(packet->data, 0, word));
-				me_set_y(net_get_data(packet->data, 2, word));
-			//}
-		}
-		break;*/
-
-	}
-
-	plugin_debug("pathing", "bot at %i/%i\n", me.obj.location.x, me.obj.location.y);
-
-	return FORWARD_PACKET;
-}
-
-int process_incoming_packet(void *p) {
-	d2gs_packet_t *packet = D2GS_CAST(p);
-
-	switch(packet->id) {
-
-	case 0x51: {
-		word code = net_get_data(packet->data, 5, word);
-		word x = net_get_data(packet->data, 7, word);
-		word y = net_get_data(packet->data, 9, word);
-		tile_add_object(x, y, code);
-		break;
-	}
-
-	case 0xac: {
-		word x = net_get_data(packet->data, 6, word);
-		word y = net_get_data(packet->data, 8, word);
-		dword id = net_get_data(packet->data, 0, dword);
-		tile_add_npc(x, y, id);
-		break;
-	}
-
-	case 0x07: {
-		byte area = net_get_data(packet->data, 4, byte);
-		word x = net_get_data(packet->data, 0, word);
-		word y = net_get_data(packet->data, 2, word);
-		tile_add(x, y, area);
-		break;
-
-	}
-
-	case 0x09: {
-		dword id = net_get_data(packet->data, 1, dword);
-		byte side = net_get_data(packet->data, 5, byte);
-		word x = net_get_data(packet->data, 6, word);
-		word y = net_get_data(packet->data, 8, word);
-		exit_add(id, x, y, side);
-		break;
-	}
-
-	case 0x59: {
-		word x = net_get_data(packet->data, 21, word);
-		word y = net_get_data(packet->data, 23, word);
-		if (!x && !y) {
-			me_set_id(net_get_data(packet->data, 0, dword));
-		} else if (me.obj.id == net_get_data(packet->data, 0, dword)) {
-			me_set_x(x);
-			me_set_y(y);
-			tile_add_npc(me.obj.location.x, me.obj.location.y, me.obj.id);
-		}
-		break;
-	}
-
-	}
-
-	return FORWARD_PACKET;
-}
-
-_export void * module_thread(void *arg) {
-	(void)arg;
-	return NULL;
-}
-
 _export void module_cleanup() {
 	int i;
 	for (i = 0; i < 0xFF; i++) {
@@ -1809,4 +1653,52 @@ _export void module_cleanup() {
 		list_clear(&(tiles[i]));
 	}
 	list_clear(&exits);
+}
+
+_export const char * module_get_title() {
+	return "pathing";
+}
+
+_export const char * module_get_version() {
+	return "0.1.0";
+}
+
+_export const char * module_get_author() {
+	return "gonzoj";
+}
+
+_export const char * module_get_description() {
+	return "offers an extension for other plugins that allows pathfinding in dungeons";
+}
+
+_export int module_get_license() {
+	return LICENSE_GPL_V3;
+}
+
+_export module_type_t module_get_type() {
+	return (module_type_t) { MODULE_D2GS, MODULE_PASSIVE };
+}
+
+_export bool module_load_config(struct setting_section *s) {
+	int i;
+	for (i = 0; i < s->entries; i++) {
+		struct setting *set = module_setting(s->settings[i].name);
+		if (set) {
+			/*if (s->settings[i].type == STRING) {
+				set->s_var = strdup(s->settings[i].s_var);
+				if (set->s_var) {
+					setting_cleanup_t sc = { cleanup_string_setting, set };
+					list_add(&setting_cleaners, &sc);
+				}
+			}*/
+			if (s->settings[i].type == INTEGER && set->type == INTEGER) {
+				set->i_var = s->settings[i].i_var;
+			} else if (s->settings[i].type == STRING) {
+				if (set->type == INTEGER) {
+					sscanf(s->settings[i].s_var, "%li", &set->i_var);
+				}
+			}
+		}
+	}
+	return TRUE;
 }

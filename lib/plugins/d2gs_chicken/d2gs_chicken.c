@@ -19,33 +19,10 @@
 
 #define _PLUGIN
 
-#include <pthread.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <time.h>
-
-#include <util/compat.h>
-
-#include <module.h>
-
-#include <d2gs.h>
-#include <internal.h>
-#include <packet.h>
-#include <settings.h>
-#include <gui.h>
-
-#include <util/net.h>
-#include <util/list.h>
-#include <util/string.h>
-#include <util/system.h>
-#include <util/types.h>
-
-#include <me.h>
-extern bot_t me;
-
-#define PERCENT(a, b) ((a) != 0 ? (int) (((double) (b) / (double) (a)) * 100) : 0)
+#include "d2gs_chicken.h"
 
 static struct setting module_settings[] = (struct setting []) {
+	SETTING("UseMerc", FALSE, BOOLEAN),
 	SETTING("HPPotionLimit", 0, INTEGER),
 	SETTING("MPPotionLimit", 0, INTEGER),
 	SETTING("HPChickenLimit", 0, INTEGER),
@@ -55,29 +32,28 @@ static struct setting module_settings[] = (struct setting []) {
 	SETTING("PingChickenLimit", 0, INTEGER)
 };
 
-static struct list module_settings_list = LIST(module_settings, struct setting, 7);
+struct list module_settings_list = LIST(module_settings, struct setting, 8);
 
-#define module_setting(name) ((struct setting *)list_find(&module_settings_list, (comparator_t) compare_setting, name))
+struct list precast_sequence = LIST(NULL, action_t, 0);
 
-int hp_pots_used, total_hp_pots_used, mp_pots_used, total_mp_pots_used, chicken, rip, n_games;
+struct list npcs;
 
-dword npc_id;
+struct list npcs_l;
 
-bool in_trade;
+e_town_move g_previous_dest = VOID;
 
-typedef struct {
-	char code[4];
-	dword id;
-} potion_t;
+int merc_rez = 0;
 
-enum {
-	HEALTH_POTION, MANA_POTION
-};
+static int hp_pots_used, total_hp_pots_used, mp_pots_used, total_mp_pots_used, chicken, rip, n_games;
 
-struct list belt;
-int belt_size;
+static dword npc_id;
 
-potion_t npc_hp, npc_mp;
+static bool in_trade;
+
+static struct list belt;
+static int belt_size;
+
+static potion_t npc_hp, npc_mp;
 
 static pthread_mutex_t chicken_m;
 static pthread_cond_t chicken_cv;
@@ -87,180 +63,8 @@ static bool exit_ack;
 
 static struct timespec ping_ts;
 
-int d2gs_char_update(void *);
-int d2gs_belt_update(void *);
-int d2gs_belt_size_update(void *);
-int d2gs_shop_update(void *);
-int d2gs_on_npc_interact(void *);
-int d2gs_on_npc_quit(void *);
-int d2gs_on_exit_ack(void *);
-int internal_on_module_cleanup(internal_packet_t *);
-int d2gs_on_event_message(void *);
-int d2gs_on_ping(void *);
-
-_export const char * module_get_title() {
-	return "chicken";
-}
-
-_export const char * module_get_version() {
-	return "0.1.0";
-}
-
-_export const char * module_get_author() {
-	return "gonzoj";
-}
-
-_export const char * module_get_description() {
-	return "keeps your character alive";
-}
-
-_export int module_get_license() {
-	return LICENSE_GPL_V3;
-}
-
-_export module_type_t module_get_type() {
-	return (module_type_t) { MODULE_D2GS, MODULE_ACTIVE };
-}
-
-_export bool module_load_config(struct setting_section *s) {
-	int i;
-	for (i = 0; i < s->entries; i++) {
-		struct setting *set = module_setting(s->settings[i].name);
-		if (set) {
-			if (s->settings[i].type == STRING) {
-				if (set->type == BOOLEAN) {
-					set->b_var = !strcmp(string_to_lower_case(s->settings[i].s_var), "yes");
-				} else if (set->type == INTEGER) {
-					sscanf(s->settings[i].s_var, "%li",  &set->i_var);
-				}
-			}
-		}
-	}
-
-	return TRUE;
-}
-
-_export bool module_init() {
-	register_packet_handler(D2GS_RECEIVED, 0x95, d2gs_char_update);
-	register_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_belt_update);
-	register_packet_handler(D2GS_RECEIVED, 0x9d, d2gs_belt_size_update);
-	register_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_shop_update);
-	register_packet_handler(D2GS_SENT, 0x38, d2gs_on_npc_interact);
-	register_packet_handler(D2GS_SENT, 0x30, d2gs_on_npc_quit);
-	register_packet_handler(D2GS_RECEIVED, 0x06, d2gs_on_exit_ack);
-	register_packet_handler(INTERNAL, D2GS_ENGINE_MESSAGE, (packet_handler_t) internal_on_module_cleanup);
-	register_packet_handler(D2GS_RECEIVED, 0x5a, d2gs_on_event_message);
-	register_packet_handler(D2GS_SENT, 0x6d, d2gs_on_ping);
-	register_packet_handler(D2GS_RECEIVED, 0x8f, d2gs_on_ping);
-
-	belt = list_new(potion_t);
-	belt_size = 4;
-
-	in_trade = FALSE;
-	npc_id = 0;
-	npc_hp.id = 0;
-	npc_mp.id = 0;
-	hp_pots_used = 0;
-	mp_pots_used = 0;
-	total_hp_pots_used = 0;
-	total_mp_pots_used = 0;
-	chicken = 0;
-	rip = 0;
-	n_games = 0;
-
-	pthread_mutex_init(&chicken_m, NULL);
-	pthread_cond_init(&chicken_cv, NULL);
-
-	exit_game = FALSE;
-	exit_ack = FALSE;
-
-	return TRUE;
-}
-
-_export bool module_finit() {
-	unregister_packet_handler(D2GS_RECEIVED, 0x95, d2gs_char_update);
-	unregister_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_belt_update);
-	unregister_packet_handler(D2GS_RECEIVED, 0x9d, d2gs_belt_size_update);
-	unregister_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_shop_update);
-	unregister_packet_handler(D2GS_SENT, 0x38, d2gs_on_npc_interact);
-	unregister_packet_handler(D2GS_SENT, 0x30, d2gs_on_npc_quit);
-	unregister_packet_handler(D2GS_RECEIVED, 0x06, d2gs_on_exit_ack);
-	unregister_packet_handler(INTERNAL, D2GS_ENGINE_MESSAGE, (packet_handler_t) internal_on_module_cleanup);
-	unregister_packet_handler(D2GS_RECEIVED, 0x5a, d2gs_on_event_message);
-	unregister_packet_handler(D2GS_SENT, 0x6d, d2gs_on_ping);
-	unregister_packet_handler(D2GS_RECEIVED, 0x8f, d2gs_on_ping);
-
-	list_clear(&belt);
-
-	pthread_mutex_destroy(&chicken_m);
-	pthread_cond_destroy(&chicken_cv);
-
-	ui_add_statistics_plugin("chicken", "healing pots used: %i\n", total_hp_pots_used);
-	ui_add_statistics_plugin("chicken", "mana pots used: %i\n", total_mp_pots_used);
-	ui_add_statistics_plugin("chicken", "chicken: %i (%i%%)\n", chicken, PERCENT(n_games, chicken));
-	ui_add_statistics_plugin("chicken", "RIP: %i (%i%%)\n", rip, PERCENT(n_games, rip));
-
-	return TRUE;
-}
-
-_export void * module_thread(void *arg) {
-	(void)arg;
-	pthread_mutex_lock(&chicken_m);
-
-	if (!exit_ack) {
-		pthread_cond_wait(&chicken_cv, &chicken_m);
-	}
-
-	if (exit_game) {
-		pthread_mutex_unlock(&chicken_m);
-		msleep(module_setting("ForceExitDelay")->i_var);
-		pthread_mutex_lock(&chicken_m);
-
-		if (!exit_ack) {
-			pthread_mutex_unlock(&chicken_m);
-
-			plugin_print("chicken", "%i ms have passed without an exit acknowledgement\n", module_setting("ForceExitDelay")->i_var);
-			plugin_print("chicken", "requesting forced disconnect\n");
-
-			internal_send(INTERNAL_REQUEST, "%d", D2GS_ENGINE_SHUTDOWN);
-		} else {
-			pthread_mutex_unlock(&chicken_m);
-		}
-	} else {
-		pthread_mutex_unlock(&chicken_m);
-	}
-
-	exit_game = FALSE;
-	exit_ack = FALSE;
-
-	pthread_exit(NULL);
-}
-
-int internal_on_module_cleanup(internal_packet_t *p) {
-	if (*(int *)p->data == MODULES_CLEANUP) {
-		pthread_mutex_lock(&chicken_m);
-
-		exit_ack = TRUE;
-
-		pthread_cond_signal(&chicken_cv);
-
-		pthread_mutex_unlock(&chicken_m);
-	}
-
-	return FORWARD_PACKET;
-}
-
-_export void module_cleanup() {
-	list_clear(&belt);
-
-	in_trade = FALSE;
-	npc_id = 0;
-
-	n_games++;
-}
-
-void leave_game() {
-	d2gs_send(0x69, "");
+static void leave_game() {
+	me_leave();
 
 	chicken++;
 
@@ -273,15 +77,15 @@ void leave_game() {
 	pthread_mutex_unlock(&chicken_m);
 }
 
-int compare_code(const void *pot, const void *code) {
+static int compare_code(const void *pot, const void *code) {
 	return (int) strstr(((potion_t *)pot)->code, (char *) code);
 }
 
-int compare_id(const void *pot, const void *id) {
+static int compare_id(const void *pot, const void *id) {
 	return ((potion_t *) pot)->id == *(dword *)id;
 }
 
-bool potion(int type) {
+static bool potion(int type) {
 	char *code;
 
 	switch (type) {
@@ -308,7 +112,51 @@ bool potion(int type) {
 	return FALSE;
 }
 
-int d2gs_char_update(void *p) {
+static void restock_potions() {
+	plugin_debug("chicken", "restocking pots\n");
+
+	struct iterator it = list_iterator(&belt);
+	potion_t *pot;
+	int n_hp = 0;
+	int n_mp = 0;
+	/* int n_rp = 0; */ //TODO: handle rejuvs
+
+	while ((pot = iterator_next(&it))) {
+		if (strstr(pot->code, "hp"))
+			n_hp++;
+		else //if (strstr(pot->code, "mp"))
+			n_mp++;
+		/* else */
+			/* n_rp++; */
+	}
+
+	if (n_hp < belt_size / 2) {
+		plugin_print("chicken",  "restock %i healing pot(s)\n", belt_size / 2 - n_hp);
+		hp_pots_used = 0;
+	}
+	while (n_hp < belt_size / 2 && npc_hp.id && npc_id) {
+		d2gs_send(0x32, "%d %d 00 00 00 00 64 00 00 00", npc_id, npc_hp.id);
+
+		msleep(200);
+		n_hp++;
+	}
+
+	if (n_mp < belt_size / 2) {
+		plugin_print("chicken",  "restock %i mana pot(s)\n", belt_size / 2 - n_mp);
+		mp_pots_used = 0;
+	}
+	while (n_mp < belt_size / 2 && npc_mp.id && npc_id) {
+		d2gs_send(0x32, "%d %d 00 00 00 00 64 00 00 00", npc_id, npc_mp.id);
+
+		msleep(200);
+		n_mp++;
+	}
+}
+
+
+/* PACKETS HANDLERS */
+
+static int d2gs_char_update(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	if (net_extract_bits(packet->data, 45, 15)) {
@@ -360,7 +208,7 @@ int d2gs_char_update(void *p) {
 	return FORWARD_PACKET;
 }
 
-int d2gs_belt_size_update(void *p) {
+static int d2gs_belt_size_update(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	if (net_extract_bits(packet->data, 0, 8) == 0x06) { //-> equip
@@ -395,7 +243,7 @@ int d2gs_belt_size_update(void *p) {
 	return FORWARD_PACKET;
 }
 
-int d2gs_belt_update(void *p) {
+static int d2gs_belt_update(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	byte action = net_extract_bits(packet->data, 0, 8);
@@ -430,7 +278,7 @@ int d2gs_belt_update(void *p) {
 	return FORWARD_PACKET;
 }
 
-int d2gs_shop_update(void *p) {
+static int d2gs_shop_update(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	byte action = net_extract_bits(packet->data, 0, 8);
@@ -464,7 +312,7 @@ int d2gs_shop_update(void *p) {
 	return FORWARD_PACKET;
 }
 
-int d2gs_on_npc_interact(void *p) {
+static int d2gs_on_npc_interact(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	if (net_get_data(packet->data, 0, dword) == 0x01) {
@@ -477,48 +325,7 @@ int d2gs_on_npc_interact(void *p) {
 	return FORWARD_PACKET;
 }
 
-void restock_potions() {
-	plugin_debug("chicken", "restocking pots\n");
-
-	struct iterator it = list_iterator(&belt);
-	potion_t *pot;
-	int n_hp = 0;
-	int n_mp = 0;
-	/* int n_rp = 0; */ //TODO: handle rejuvs
-
-	while ((pot = iterator_next(&it))) {
-		if (strstr(pot->code, "hp"))
-			n_hp++;
-		else //if (strstr(pot->code, "mp"))
-			n_mp++;
-		/* else */
-			/* n_rp++; */
-	}
-
-	if (n_hp < belt_size / 2) {
-		plugin_print("chicken",  "restock %i healing pot(s)\n", belt_size / 2 - n_hp);
-		hp_pots_used = 0;
-	}
-	while (n_hp < belt_size / 2 && npc_hp.id && npc_id) {
-		d2gs_send(0x32, "%d %d 00 00 00 00 64 00 00 00", npc_id, npc_hp.id);
-
-		msleep(200);
-		n_hp++;
-	}
-
-	if (n_mp < belt_size / 2) {
-		plugin_print("chicken",  "restock %i mana pot(s)\n", belt_size / 2 - n_mp);
-		mp_pots_used = 0;
-	}
-	while (n_mp < belt_size / 2 && npc_mp.id && npc_id) {
-		d2gs_send(0x32, "%d %d 00 00 00 00 64 00 00 00", npc_id, npc_mp.id);
-
-		msleep(200);
-		n_mp++;
-	}
-}
-
-int d2gs_on_npc_quit(void *p) {
+static int d2gs_on_npc_quit(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	if (net_get_data(packet->data, 4, dword) == npc_id && in_trade) {
@@ -536,7 +343,7 @@ int d2gs_on_npc_quit(void *p) {
 	return FORWARD_PACKET;
 }
 
-int d2gs_on_exit_ack(void *p) {
+static int d2gs_on_exit_ack(void *p) {
 	(void)p;
 	pthread_mutex_lock(&chicken_m);
 
@@ -547,7 +354,7 @@ int d2gs_on_exit_ack(void *p) {
 	return FORWARD_PACKET;
 }
 
-int d2gs_on_event_message(void *p) {
+static int d2gs_on_event_message(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	if (net_get_data(packet->data, 0, byte) == 0x07 && net_get_data(packet->data, 1, byte) == 0x08) {
@@ -563,7 +370,7 @@ int d2gs_on_event_message(void *p) {
 	return FORWARD_PACKET;
 }
 
-int d2gs_on_ping(void *p) {
+static int d2gs_on_ping(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	switch (packet->id) {
@@ -590,4 +397,192 @@ int d2gs_on_ping(void *p) {
 	}
 
 	return FORWARD_PACKET;
+}
+
+static int internal_on_module_cleanup(internal_packet_t *p) {
+	if (*(int *)p->data == MODULES_CLEANUP) {
+		pthread_mutex_lock(&chicken_m);
+
+		exit_ack = TRUE;
+
+		pthread_cond_signal(&chicken_cv);
+
+		pthread_mutex_unlock(&chicken_m);
+	}
+
+	return FORWARD_PACKET;
+}
+
+
+/* MODULE */
+
+_export void * module_thread(void *arg) {
+	(void)arg;
+	pthread_mutex_lock(&chicken_m);
+
+	if (!exit_ack) {
+		pthread_cond_wait(&chicken_cv, &chicken_m);
+	}
+
+	if (exit_game) {
+		pthread_mutex_unlock(&chicken_m);
+		msleep(module_setting("ForceExitDelay")->i_var);
+		pthread_mutex_lock(&chicken_m);
+
+		if (!exit_ack) {
+			pthread_mutex_unlock(&chicken_m);
+
+			plugin_print("chicken", "%i ms have passed without an exit acknowledgement\n", module_setting("ForceExitDelay")->i_var);
+			plugin_print("chicken", "requesting forced disconnect\n");
+
+			internal_send(INTERNAL_REQUEST, "%d", D2GS_ENGINE_SHUTDOWN);
+		} else {
+			pthread_mutex_unlock(&chicken_m);
+		}
+	} else {
+		pthread_mutex_unlock(&chicken_m);
+	}
+
+	exit_game = FALSE;
+	exit_ack = FALSE;
+
+	pthread_exit(NULL);
+}
+
+_export bool module_init() {
+	register_packet_handler(D2GS_RECEIVED, 0x06, d2gs_on_exit_ack);
+	register_packet_handler(D2GS_RECEIVED, 0x5a, d2gs_on_event_message);
+	register_packet_handler(D2GS_RECEIVED, 0x8f, d2gs_on_ping);
+	register_packet_handler(D2GS_RECEIVED, 0x95, d2gs_char_update);
+	register_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_belt_update);
+	register_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_shop_update);
+	register_packet_handler(D2GS_RECEIVED, 0x9d, d2gs_belt_size_update);
+
+	register_packet_handler(D2GS_SENT, 0x30, d2gs_on_npc_quit);
+	register_packet_handler(D2GS_SENT, 0x38, d2gs_on_npc_interact);
+	register_packet_handler(D2GS_SENT, 0x6d, d2gs_on_ping);
+
+	register_packet_handler(INTERNAL, D2GS_ENGINE_MESSAGE, (packet_handler_t) internal_on_module_cleanup);
+
+	belt = list_new(potion_t);
+	belt_size = 4;
+
+	in_trade = FALSE;
+	npc_id = 0;
+	npc_hp.id = 0;
+	npc_mp.id = 0;
+	hp_pots_used = 0;
+	mp_pots_used = 0;
+	total_hp_pots_used = 0;
+	total_mp_pots_used = 0;
+	chicken = 0;
+	rip = 0;
+	n_games = 0;
+
+	pthread_mutex_init(&chicken_m, NULL);
+	pthread_cond_init(&chicken_cv, NULL);
+
+	exit_game = FALSE;
+	exit_ack = FALSE;
+
+	town_init();
+	precast_init();
+
+	return TRUE;
+}
+
+_export bool module_finit() {
+	unregister_packet_handler(D2GS_RECEIVED, 0x06, d2gs_on_exit_ack);
+	unregister_packet_handler(D2GS_RECEIVED, 0x5a, d2gs_on_event_message);
+	unregister_packet_handler(D2GS_RECEIVED, 0x8f, d2gs_on_ping);
+	unregister_packet_handler(D2GS_RECEIVED, 0x95, d2gs_char_update);
+	unregister_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_belt_update);
+	unregister_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_shop_update);
+	unregister_packet_handler(D2GS_RECEIVED, 0x9d, d2gs_belt_size_update);
+
+	unregister_packet_handler(D2GS_SENT, 0x30, d2gs_on_npc_quit);
+	unregister_packet_handler(D2GS_SENT, 0x38, d2gs_on_npc_interact);
+	unregister_packet_handler(D2GS_SENT, 0x6d, d2gs_on_ping);
+
+	unregister_packet_handler(INTERNAL, D2GS_ENGINE_MESSAGE, (packet_handler_t) internal_on_module_cleanup);
+
+	list_clear(&belt);
+
+	pthread_mutex_destroy(&chicken_m);
+	pthread_cond_destroy(&chicken_cv);
+
+	town_finit();
+	precast_finit();
+
+	ui_add_statistics_plugin("chicken", "healing pots used: %i\n", total_hp_pots_used);
+	ui_add_statistics_plugin("chicken", "mana pots used: %i\n", total_mp_pots_used);
+	ui_add_statistics_plugin("chicken", "chicken: %i (%i%%)\n", chicken, PERCENT(n_games, chicken));
+	ui_add_statistics_plugin("chicken", "merc resurrections: %i\n", merc_rez);
+	ui_add_statistics_plugin("chicken", "RIP: %i (%i%%)\n", rip, PERCENT(n_games, rip));
+
+	return TRUE;
+}
+
+_export void module_cleanup() {
+	list_clear(&belt);
+
+	list_clear(&precast_sequence);
+
+	list_clear(&npcs);
+	list_clear(&npcs_l);
+
+	g_previous_dest = VOID;
+
+	in_trade = FALSE;
+	npc_id = 0;
+
+	n_games++;
+}
+
+_export const char * module_get_title() {
+	return "chicken";
+}
+
+_export const char * module_get_version() {
+	return "0.1.0";
+}
+
+_export const char * module_get_author() {
+	return "gonzoj";
+}
+
+_export const char * module_get_description() {
+	return "keeps your character alive";
+}
+
+_export int module_get_license() {
+	return LICENSE_GPL_V3;
+}
+
+_export module_type_t module_get_type() {
+	return (module_type_t) { MODULE_D2GS, MODULE_ACTIVE };
+}
+
+_export bool module_load_config(struct setting_section *s) {
+	int i;
+	for (i = 0; i < s->entries; i++) {
+		if (!strcmp(s->settings[i].name, "PrecastSequence")) {
+			char *c_setting = strdup(s->settings[i].s_var);
+			assemble_sequence(&precast_sequence, c_setting);
+			free(c_setting);
+		} else {
+			struct setting *set = module_setting(s->settings[i].name);
+			if (set) {
+				if (s->settings[i].type == STRING) {
+					if (set->type == BOOLEAN) {
+						set->b_var = !strcmp(string_to_lower_case(s->settings[i].s_var), "yes");
+					} else if (set->type == INTEGER) {
+						sscanf(s->settings[i].s_var, "%li",  &set->i_var);
+					}
+				}
+			}
+		}
+	}
+
+	return TRUE;
 }

@@ -41,7 +41,6 @@
 #include "packet.h"
 #include "gui.h"
 #include "me.h"
-extern bot_t me;
 
 #include <util/net.h>
 #include <util/system.h>

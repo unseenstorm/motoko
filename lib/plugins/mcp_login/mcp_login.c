@@ -151,11 +151,17 @@ int mcp_startup_handler(void *p) {
 	case 0x7e: {
 		plugin_error("mcp login", "error: CD key banned from this realm\n");
 
+		plugin_print("mcp login", "sleeping for 1h\n");
+		sleep(3600);
+
 		return FORWARD_PACKET;
 	}
 
 	case 0x7f: {
 		plugin_error("mcp login", "error: temporary IP ban (\"your connection has been temporarily restricted from this realm.\")\n");
+
+		plugin_print("mcp login", "sleeping for 1h\n");
+		sleep(3600);
 
 		plugin_print("mcp login", "requesting client restart\n");
 

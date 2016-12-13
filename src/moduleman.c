@@ -619,8 +619,9 @@ _export void clear_module_schedule(int engine) {
 
 }
 
-void unsupported_interface(char *caller, ...) {
+bool unsupported_interface(char *caller, ...) {
 	error("error: unsupported extension called by %s\n", caller);
+	return FALSE;
 }
 
 extension_t unsupported_extension = { "unsupported extenstion", unsupported_interface };

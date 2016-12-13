@@ -69,9 +69,11 @@
 # ForceExitDelay: specifies the delay before forcing a disconnect when no game exit acknowledgement is received (milliseconds)
 # OnHostile: specifies whether to chicken on hostile (options: yes, no)
 # PingChickenLimit: specifies when to chicken due to latency (0 to disable)
+# PrecastSequence: buff sequence that gets executed when leaving town (syntax as for AttackSequence in pes plugin)
 
 <Plugin type=nested>
 	Name = d2gs_chicken
+	UseMerc = no
 	HPPotionLimit = 600
 	HPChickenLimit = 400
 	MPPotionLimit = 150
@@ -79,6 +81,7 @@
 	ForceExitDelay = 500
 	OnHostile = yes
 	PingChickenLimit = 0
+    PrecastSequence = ""
 </Plugin>
 
 # plugin pickit
@@ -131,24 +134,10 @@
 
 # plugin chest
 #
-# CastDelay: specifies how long to idle after casting a spell (milliseconds)
-# PrecastSequence: buff sequence that gets executed when leaving town
-#  syntax: single actions are separated by '/', arguments and actions are separated by ':'
-#  options:
-#    switch (): switch weapon slot
-#    self (spell): cast spell at character
-#    left (spell): set left skill to spell and cast at monster
-#    right (spell): set right skill to spell and cast at monster
-# ShopAfterRuns: after the defined number of runs the character will spend time shopping (0 to disable)
-# RepairAfterRuns: after the defined number of runs the character will repair equipment (0 to disable)
+# MinGameTime: minimun time to spend in game
 
 <Plugin type=nested>
 	Name = d2gs_chest
-	UseMerc = yes
-	CastDelay = 250
-	PrecastSequence = ""
-	ShopAfterRuns = 2
-	RepairAfterRuns = 0
 	MinGameTime = 180
 </Plugin>
 
@@ -156,7 +145,6 @@
 #
 # CastDelay: specifies how long to idle after casting a spell (milliseconds)
 # MaxSequencesPerMonster: upper limit for attacking a monster with the specified sequence
-# PrecastSequence: buff sequence that gets executed when leaving town (syntax as for AttackSequence)
 # AttackSequence: attack sequence that gets executed for every monster encountered
 #  syntax: single actions are separated by '/', arguments and actions are separated by ':'
 #  options:
@@ -165,22 +153,16 @@
 #    left (spell): set left skill to spell and cast at monster
 #    right (spell): set right skill to spell and cast at monster
 # SkipMods: monsters with specified mods (separated by ':') will be skipped (options: light, lightning, stoneskin, cursed, ...)
-# ShopAfterRuns: after the defined number of runs the character will spend time shopping (0 to disable)
-# RepairAfterRuns: after the defined number of runs the character will repair equipment (0 to disable)
 
 <Plugin type=nested>
 	Name = d2gs_pes
 	RunPindleskin = yes
 	RunEldritch = yes
 	RunShenk = no
-	UseMerc = yes
 	CastDelay = 250
 	MaxSequencesPerMonster = 10
-	PrecastSequence = "switch/self:Shiver Armor/switch"
 	AttackSequence = "left:Lightning/right:Chain Lightning"
 	SkipMods = "light:lightning"
-	ShopAfterRuns = 2
-	RepairAfterRuns = 0
 </Plugin>
 
 # plugin dclone

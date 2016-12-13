@@ -15,11 +15,13 @@ nobase_pkginclude_HEADERS = \
 	data/monster_fields.h \
 	data/monster_names.h \
 	data/skills.h \
+	data/waypoints.h \
 	data/super_uniques.h
 
 bin_PROGRAMS = motoko
 motoko_SOURCES = \
 	me.c \
+	me.h \
 	bncs.c \
 	bncs.h \
 	clientman.c \
@@ -49,4 +51,4 @@ motoko_SOURCES = \
 motoko_CFLAGS = $(AM_CFLAGS) $(CFLAG_FVISIBILITY_HIDDEN)
 motoko_CPPFLAGS = $(AM_CPPFLAGS) -I$(top_srcdir)/lib/libwardenc/src $(CPPFLAG_DEXPORT) -DPLUGINDIR=\"$(plugindir)\" -DCONFIGDIR=\"$(configdir)\"
 motoko_LDFLAGS = $(LDFLAG_RDYNAMIC)
-LDADD = -ldl -lpthread -lncurses $(top_srcdir)/lib/util/libutil.la $(LADD_LIBWARDENC)
+LDADD = -ldl -lpthread -lncurses -lm $(top_srcdir)/lib/util/libutil.la $(LADD_LIBWARDENC)

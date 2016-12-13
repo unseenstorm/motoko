@@ -19,71 +19,26 @@
 
 #define _PLUGIN
 
-#include <math.h>
-#include <pthread.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
+#include "d2gs_pickit.h"
 
-#include <module.h>
+static point_t location; // test pickit
 
-#include <d2gs.h>
-#include <internal.h>
-#include <moduleman.h>
-#include <packet.h>
-#include <settings.h>
-#include <gui.h>
-#include <data/item_codes.h>
+static struct list items;
+static struct list valuable = LIST(NULL, item_t, 0); // must init here because load_config is called before init
+static struct list nolog = LIST(NULL, char[4], 0);
 
-#include <util/config.h>
-#include <util/net.h>
-#include <util/list.h>
-#include <util/string.h>
-#include <util/system.h>
-#include <util/types.h>
+static pthread_mutex_t items_m;
 
-#include <me.h>
-extern bot_t me;
+static bool is_picked;
+static pthread_mutex_t is_picked_m;
 
-typedef void (*pthread_cleanup_handler_t)(void *);
-
-point_t location; // test pickit
-
-typedef struct {
-	byte action;
-	byte destination;
-	byte container;
-	byte quality;
-	char code[4];
-	point_t location;
-	byte level;
-	dword id;
-	int ethereal;
-	dword amount;
-	int sockets;
-	int distance; // test pickit
-} item_t;
-
-#define UNSPECIFIED 0xff
-
-struct list items;
-struct list valuable = LIST(NULL, item_t, 0); // must init here because load_config is called before init
-struct list nolog = LIST(NULL, char[4], 0);
-
-pthread_mutex_t items_m;
-
-bool is_picked;
-pthread_mutex_t is_picked_m;
-
-bool routine_scheduled = FALSE;
+static bool routine_scheduled = FALSE;
 
 /* statistics */
-int n_attempts = 0;
-int n_picked = 0;
+static int n_attempts = 0;
+static int n_picked = 0;
 
-char *qualities[] = {
+static char *qualities[] = {
 	"other", // 0x00
 	"", // 0x01
 	"normal", // 0x02
@@ -94,7 +49,8 @@ char *qualities[] = {
 	"unique", // 0x07
 };
 
-void item_dump(item_t *i) {
+
+static void item_dump(item_t *i) {
 	char *quality = i->quality == UNSPECIFIED ? "UNSPECIFIED" : qualities[i->quality];
 	char *code = "UNSPECIFIED";
 	if ((*i->code & UNSPECIFIED) != UNSPECIFIED) {
@@ -130,7 +86,7 @@ void item_dump(item_t *i) {
 	ui_console_unlock();
 }
 
-const char * lookup_item(item_t *i) {
+static const char * lookup_item(item_t *i) {
 	int j;
 
 	for (j = 0; j < n_item_codes; j++) {
@@ -142,7 +98,46 @@ const char * lookup_item(item_t *i) {
 	return "";
 }
 
-bool is_blocked(item_t *i) {
+static void pickit_routine() {
+	//pthread_mutex_lock(&items_m);
+	//pthread_cleanup_push((pthread_cleanup_handler_t) pthread_mutex_unlock, (void *) &items_m);
+
+	routine_scheduled = FALSE;
+
+	plugin_print("pickit", "pickit routine started\n");
+
+	/* d2gs_send(0x3c, "%w 00 00 ff ff ff ff", 0x36); */
+	/* msleep(300); */
+
+	struct iterator it = list_iterator(&items);
+	item_t *i;
+	int delay;
+
+	pthread_mutex_lock(&items_m);
+
+	while ((i = iterator_next(&it))) {
+		pthread_mutex_unlock(&items_m);
+
+		plugin_print("pickit", "pick up %s\n", lookup_item(i));
+
+		/* d2gs_send(0x0c, "%w %w", i->location.x, i->location.y); */
+
+		/* msleep(250); */
+
+		is_picked = FALSE;
+		d2gs_send(0x16,"04 00 00 00 %d 00 00 00 00", i->id);
+		for (delay = 500; delay && !is_picked; delay -= 50)
+			msleep(50);
+
+		pthread_mutex_lock(&items_m);
+	}
+
+	pthread_mutex_unlock(&items_m);
+
+	//pthread_cleanup_pop(1);
+}
+
+static bool is_blocked(item_t *i) {
 	struct iterator it = list_iterator(&nolog);
 	char *j;
 
@@ -154,7 +149,7 @@ bool is_blocked(item_t *i) {
 	return FALSE;
 }
 
-void logitem(const char *format, ...) {
+static void logitem(const char *format, ...) {
 	static bool newline = TRUE;
 
 	char *log;
@@ -193,211 +188,7 @@ void logitem(const char *format, ...) {
 	}
 }
 
-int d2gs_item_action(void *);
-int d2gs_char_location_update(void *);
-int d2gs_gold_update(void *);
-//int internal_trigger_pickit(void *);
-void pickit_routine();
-
-_export const char * module_get_title() {
-	return "pickit";
-}
-
-_export const char * module_get_version() {
-	return "0.1.0";
-}
-
-_export const char * module_get_author() {
-	return "gonzoj";
-}
-
-_export const char * module_get_description() {
-	return "picks up user specified items";
-}
-
-_export int module_get_license() {
-	return LICENSE_GPL_V3;
-}
-
-_export module_type_t module_get_type() {
-	return (module_type_t) { MODULE_D2GS, MODULE_PASSIVE };
-}
-
-_export bool module_load_config(struct setting_section *s) {
-	int i;
-
-	if (strcmp(s->name, "Item")) {
-		/*for (i = 0; i < s->entries; i++) {
-			if (!strcmp(s->settings[i].name, "File")) {
-				plugin_print("pickit", "recursively loading pickit config from file %s\n", s->settings[i].s_var);
-				config_load_settings(s->settings[i].s_var, (void(*)(struct setting_section *)) module_load_config);
-			}
-		}*/
-
-		return TRUE;
-	}
-
-	bool log_item = TRUE;
-
-	item_t item;
-	memset(&item, UNSPECIFIED, sizeof(item_t));
-
-	for (i = 0; i < s->entries; i++) {
-		if (!strcmp(s->settings[i].name, "Log")) {
-			if (!strcmp(string_to_lower_case(s->settings[i].s_var), "no")) {
-				log_item = FALSE;
-			}
-		}
-
-		if (!strcmp(s->settings[i].name, "Code")) {
-			strncpy(item.code, string_to_lower_case(s->settings[i].s_var), 3);
-			item.code[3] = '\0';
-		}
-
-		if (!strcmp(s->settings[i].name, "Quality")) {
-			char *quality = string_to_lower_case(s->settings[i].s_var);
-
-			if (!strcmp(quality, "set")) {
-				item.quality = 0x05;
-			}
-			if (!strcmp(quality, "unique")) {
-				item.quality = 0x07;
-			}
-			if (!strcmp(quality, "other")) {
-				item.quality = 0x00;
-			}
-			if (!strcmp(quality, "normal")) {
-				item.quality = 0x02;
-			}
-			if (!strcmp(quality, "magic")) {
-				item.quality = 0x04;
-			}
-			if (!strcmp(quality, "rare")) {
-				item.quality = 0x06;
-			}
-			if (!strcmp(quality, "superior")) {
-				item.quality = 0x03;
-			}
-		}
-
-		if (!strcmp(s->settings[i].name, "Ethereal")) {
-			if (!strcmp(string_to_lower_case(s->settings[i].s_var), "yes")) {
-				item.ethereal = TRUE;
-			}
-			if (!strcmp(string_to_lower_case(s->settings[i].s_var), "no")) {
-				item.ethereal = FALSE;
-			}
-		}
-
-		if (!strcmp(s->settings[i].name, "Level")) {
-			sscanf(s->settings[i].s_var, "%c", &item.level);
-		}
-
-		if (!strcmp(s->settings[i].name, "Amount")) {
-			sscanf(s->settings[i].s_var, "%i", &item.amount);
-		}
-
-		if (!strcmp(s->settings[i].name, "Sockets")) {
-			sscanf(s->settings[i].s_var, "%i", &item.sockets);
-		}
-	}
-
-	list_add(&valuable, &item);
-
-	if (!log_item && (*item.code & UNSPECIFIED) != UNSPECIFIED) {
-		list_add(&nolog, &item.code);
-	}
-
-	return TRUE;
-}
-
-_export bool module_init() {
-	register_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_item_action);
-
-	register_packet_handler(D2GS_RECEIVED, 0x15, d2gs_char_location_update);
-	register_packet_handler(D2GS_RECEIVED, 0x95, d2gs_char_location_update);
-	register_packet_handler(D2GS_SENT, 0x0c, d2gs_char_location_update);
-
-	register_packet_handler(D2GS_RECEIVED, 0x19, d2gs_gold_update);
-	register_packet_handler(D2GS_RECEIVED, 0x1d, d2gs_gold_update);
-	register_packet_handler(D2GS_RECEIVED, 0x1e, d2gs_gold_update);
-	register_packet_handler(D2GS_RECEIVED, 0x1f, d2gs_gold_update);
-	//register_packet_handler(D2GS_RECEIVED, 0x20, d2gs_gold_update);
-
-	//register_packet_handler(INTERNAL, 0x9c, internal_trigger_pickit);
-
-	items = list_new(item_t);
-
-	is_picked = FALSE;
-
-	pthread_mutex_init(&items_m, NULL);
-	pthread_mutex_init(&is_picked_m, NULL);
-
-	logitem("  --- NEW SESSION ---\n");
-
-	return TRUE;
-}
-
-_export bool module_finit() {
-	unregister_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_item_action);
-
-	unregister_packet_handler(D2GS_RECEIVED, 0x15, d2gs_char_location_update);
-	unregister_packet_handler(D2GS_RECEIVED, 0x95, d2gs_char_location_update);
-	unregister_packet_handler(D2GS_SENT, 0x0c, d2gs_char_location_update);
-
-	unregister_packet_handler(D2GS_RECEIVED, 0x19, d2gs_gold_update);
-	unregister_packet_handler(D2GS_RECEIVED, 0x1d, d2gs_gold_update);
-	unregister_packet_handler(D2GS_RECEIVED, 0x1e, d2gs_gold_update);
-	unregister_packet_handler(D2GS_RECEIVED, 0x1f, d2gs_gold_update);
-	//unregister_packet_handler(D2GS_RECEIVED, 0x20, d2gs_gold_update);
-
-	//unregister_packet_handler(INTERNAL, 0x9c, internal_trigger_pickit);
-
-	list_clear(&items);
-	list_clear(&valuable);
-	list_clear(&nolog);
-
-	pthread_mutex_destroy(&items_m);
-	pthread_mutex_destroy(&is_picked_m);
-
-	ui_add_statistics_plugin("pickit", "attempts to pick items: %i\n", n_attempts);
-	ui_add_statistics_plugin("pickit", "picked items: %i (%i%%)\n", n_picked, PERCENT(n_attempts, n_picked));
-
-	return TRUE;
-}
-
-_export void * module_thread(void *arg) {
-	(void)arg;
-	return NULL;
-}
-
-_export void module_cleanup() {
-
-	struct iterator it = list_iterator(&items);
-	item_t *i;
-
-	while ((i = iterator_next(&it))) {
-
-		if (!is_blocked(i)) {
-			logitem("failed to pick ");
-			if (i->amount > 1) logitem("%i ", i->amount);
-			if (i->ethereal) logitem("ethereal ");
-			if (i->quality != 0x00) logitem("%s ", qualities[i->quality]);
-			logitem("%s", lookup_item(i));
-			if (i->quality != 0x00) logitem(" (%i)", i->level);
-			if (i->sockets > 0) logitem(" [%i]", i->sockets);
-			if (setting("Debug")->b_var) logitem(" distance: %i", i->distance); // test pickit
-			logitem("\n");
-		}
-
-	}
-
-	list_clear(&items);
-
-	routine_scheduled = FALSE;
-}
-
-item_t * item_new(d2gs_packet_t *packet, item_t *new) {
+static item_t * item_new(d2gs_packet_t *packet, item_t *new) {
 
 	new->action = net_extract_bits(packet->data, 0, 8);
 
@@ -521,7 +312,7 @@ item_t * item_new(d2gs_packet_t *packet, item_t *new) {
 	return new;
 }
 
-bool item_is_valuable(item_t *i, item_t *j) {
+static bool item_is_valuable(item_t *i, item_t *j) {
 	if (j->quality != UNSPECIFIED && i->quality != j->quality) {
 		return FALSE;
 	}
@@ -549,7 +340,7 @@ bool item_is_valuable(item_t *i, item_t *j) {
 	return TRUE;
 }
 
-bool item_evaluate(item_t *i) {
+static bool item_evaluate(item_t *i) {
 	struct iterator it = list_iterator(&valuable);
 	item_t *j;
 
@@ -582,11 +373,14 @@ bool item_evaluate(item_t *i) {
 	return FALSE;
 }
 
-int item_compare(item_t *i, item_t *j) {
+static int item_compare(item_t *i, item_t *j) {
 	return (i->id == j->id);
 }
 
-int d2gs_item_action(void *p) {
+
+/* PACKETS HANDLERS */
+
+static int d2gs_item_action(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	item_t i;
@@ -619,6 +413,8 @@ int d2gs_item_action(void *p) {
 
 				n_picked++;
 
+				if (setting("Debug")->b_var) item_dump(j);
+
 				logitem("picked ");
 				if (j->amount > 1) logitem("%i ", j->amount);
 				if (j->ethereal) logitem("ethereal ");
@@ -645,45 +441,11 @@ int d2gs_item_action(void *p) {
 	return FORWARD_PACKET;
 }
 
-int d2gs_char_location_update(void *p) {
-	d2gs_packet_t *packet = D2GS_CAST(p);
-
-	switch (packet->id) {
-
-		case 0x15: {
-
-		location.x = net_get_data(packet->data, 5, word); //TODO: 2 byte alignment
-		location.y = net_get_data(packet->data, 7, word); //TODO: 2 byte alignment
-
-		}
-		break;
-
-		case 0x95: {
-
-			location.x = net_extract_bits(packet->data, 45, 15);
-			location.y = net_extract_bits(packet->data, 61, 15);
-
-		}
-		break;
-
-		case 0x0c: { // sent packet
-
-			location.x = net_get_data(packet->data, 0, word);
-			location.y = net_get_data(packet->data, 2, word);
-
-		}
-		break;
-
-	}
-
-	return FORWARD_PACKET;
-}
-
-int gold_compare(item_t *i, int *a) {
+static int gold_compare(item_t *i, int *a) {
 	return (!strcmp(i->code, "gld") && (int)i->amount == *a);
 }
 
-int d2gs_gold_update(void *p) {
+static int d2gs_gold_update(void *p) {
 	d2gs_packet_t *packet = D2GS_CAST(p);
 
 	if (packet->id != 0x19 && net_get_data(packet->data, 0, byte) != 0x0e) return FORWARD_PACKET;
@@ -788,41 +550,195 @@ int d2gs_gold_update(void *p) {
 
 }*/
 
-void pickit_routine() {
-	//pthread_mutex_lock(&items_m);
-	//pthread_cleanup_push((pthread_cleanup_handler_t) pthread_mutex_unlock, (void *) &items_m);
 
-	routine_scheduled = FALSE;
+/* MODULE */
 
-	plugin_print("pickit", "pickit routine started\n");
+_export void * module_thread(void *arg) {
+	(void)arg;
+	return NULL;
+}
 
-	/* d2gs_send(0x3c, "%w 00 00 ff ff ff ff", 0x36); */
-	/* msleep(300); */
+_export bool module_init() {
+	register_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_item_action);
+
+	register_packet_handler(D2GS_RECEIVED, 0x19, d2gs_gold_update);
+	register_packet_handler(D2GS_RECEIVED, 0x1d, d2gs_gold_update);
+	register_packet_handler(D2GS_RECEIVED, 0x1e, d2gs_gold_update);
+	register_packet_handler(D2GS_RECEIVED, 0x1f, d2gs_gold_update);
+	//register_packet_handler(D2GS_RECEIVED, 0x20, d2gs_gold_update);
+
+	//register_packet_handler(INTERNAL, 0x9c, internal_trigger_pickit);
+
+	items = list_new(item_t);
+
+	is_picked = FALSE;
+
+	pthread_mutex_init(&items_m, NULL);
+	pthread_mutex_init(&is_picked_m, NULL);
+
+	logitem("  --- NEW SESSION ---\n");
+
+	return TRUE;
+}
+
+_export bool module_finit() {
+	unregister_packet_handler(D2GS_RECEIVED, 0x9c, d2gs_item_action);
+
+	unregister_packet_handler(D2GS_RECEIVED, 0x19, d2gs_gold_update);
+	unregister_packet_handler(D2GS_RECEIVED, 0x1d, d2gs_gold_update);
+	unregister_packet_handler(D2GS_RECEIVED, 0x1e, d2gs_gold_update);
+	unregister_packet_handler(D2GS_RECEIVED, 0x1f, d2gs_gold_update);
+	//unregister_packet_handler(D2GS_RECEIVED, 0x20, d2gs_gold_update);
+
+	//unregister_packet_handler(INTERNAL, 0x9c, internal_trigger_pickit);
+
+	list_clear(&items);
+	list_clear(&valuable);
+	list_clear(&nolog);
+
+	pthread_mutex_destroy(&items_m);
+	pthread_mutex_destroy(&is_picked_m);
+
+	ui_add_statistics_plugin("pickit", "attempts to pick items: %i\n", n_attempts);
+	ui_add_statistics_plugin("pickit", "picked items: %i (%i%%)\n", n_picked, PERCENT(n_attempts, n_picked));
+
+	return TRUE;
+}
+
+_export void module_cleanup() {
 
 	struct iterator it = list_iterator(&items);
 	item_t *i;
-	int delay;
-
-	pthread_mutex_lock(&items_m);
 
 	while ((i = iterator_next(&it))) {
-		pthread_mutex_unlock(&items_m);
 
-		plugin_print("pickit", "pick up %s\n", lookup_item(i));
+		if (!is_blocked(i)) {
+			logitem("failed to pick ");
+			if (i->amount > 1) logitem("%i ", i->amount);
+			if (i->ethereal) logitem("ethereal ");
+			if (i->quality != 0x00) logitem("%s ", qualities[i->quality]);
+			logitem("%s", lookup_item(i));
+			if (i->quality != 0x00) logitem(" (%i)", i->level);
+			if (i->sockets > 0) logitem(" [%i]", i->sockets);
+			if (setting("Debug")->b_var) logitem(" distance: %i", i->distance); // test pickit
+			logitem("\n");
+		}
 
-		/* d2gs_send(0x0c, "%w %w", i->location.x, i->location.y); */
-
-		/* msleep(250); */
-
-		is_picked = FALSE;
-		d2gs_send(0x16,"04 00 00 00 %d 00 00 00 00", i->id);
-		for (delay = 500; delay && !is_picked; delay -= 50)
-			msleep(50);
-
-		pthread_mutex_lock(&items_m);
 	}
 
-	pthread_mutex_unlock(&items_m);
+	list_clear(&items);
 
-	//pthread_cleanup_pop(1);
+	routine_scheduled = FALSE;
+}
+
+_export const char * module_get_title() {
+	return "pickit";
+}
+
+_export const char * module_get_version() {
+	return "0.1.0";
+}
+
+_export const char * module_get_author() {
+	return "gonzoj";
+}
+
+_export const char * module_get_description() {
+	return "picks up user specified items";
+}
+
+_export int module_get_license() {
+	return LICENSE_GPL_V3;
+}
+
+_export module_type_t module_get_type() {
+	return (module_type_t) { MODULE_D2GS, MODULE_PASSIVE };
+}
+
+_export bool module_load_config(struct setting_section *s) {
+	int i;
+
+	if (strcmp(s->name, "Item")) {
+		/*for (i = 0; i < s->entries; i++) {
+			if (!strcmp(s->settings[i].name, "File")) {
+				plugin_print("pickit", "recursively loading pickit config from file %s\n", s->settings[i].s_var);
+				config_load_settings(s->settings[i].s_var, (void(*)(struct setting_section *)) module_load_config);
+			}
+		}*/
+
+		return TRUE;
+	}
+
+	bool log_item = TRUE;
+
+	item_t item;
+	memset(&item, UNSPECIFIED, sizeof(item_t));
+
+	for (i = 0; i < s->entries; i++) {
+		if (!strcmp(s->settings[i].name, "Log")) {
+			if (!strcmp(string_to_lower_case(s->settings[i].s_var), "no")) {
+				log_item = FALSE;
+			}
+		}
+
+		if (!strcmp(s->settings[i].name, "Code")) {
+			strncpy(item.code, string_to_lower_case(s->settings[i].s_var), 3);
+			item.code[3] = '\0';
+		}
+
+		if (!strcmp(s->settings[i].name, "Quality")) {
+			char *quality = string_to_lower_case(s->settings[i].s_var);
+
+			if (!strcmp(quality, "set")) {
+				item.quality = 0x05;
+			}
+			if (!strcmp(quality, "unique")) {
+				item.quality = 0x07;
+			}
+			if (!strcmp(quality, "other")) {
+				item.quality = 0x00;
+			}
+			if (!strcmp(quality, "normal")) {
+				item.quality = 0x02;
+			}
+			if (!strcmp(quality, "magic")) {
+				item.quality = 0x04;
+			}
+			if (!strcmp(quality, "rare")) {
+				item.quality = 0x06;
+			}
+			if (!strcmp(quality, "superior")) {
+				item.quality = 0x03;
+			}
+		}
+
+		if (!strcmp(s->settings[i].name, "Ethereal")) {
+			if (!strcmp(string_to_lower_case(s->settings[i].s_var), "yes")) {
+				item.ethereal = TRUE;
+			}
+			if (!strcmp(string_to_lower_case(s->settings[i].s_var), "no")) {
+				item.ethereal = FALSE;
+			}
+		}
+
+		if (!strcmp(s->settings[i].name, "Level")) {
+			sscanf(s->settings[i].s_var, "%c", &item.level);
+		}
+
+		if (!strcmp(s->settings[i].name, "Amount")) {
+			sscanf(s->settings[i].s_var, "%i", &item.amount);
+		}
+
+		if (!strcmp(s->settings[i].name, "Sockets")) {
+			sscanf(s->settings[i].s_var, "%i", &item.sockets);
+		}
+	}
+
+	list_add(&valuable, &item);
+
+	if (!log_item && (*item.code & UNSPECIFIED) != UNSPECIFIED) {
+		list_add(&nolog, &item.code);
+	}
+
+	return TRUE;
 }
