@@ -21,6 +21,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <module.h>
 
@@ -35,6 +36,7 @@
 
 static struct setting module_settings[] = (struct setting []) {
 	SETTING("NameList", .s_var = "", STRING),
+	//SETTING("Delay", 1000, useconds_t),
 };
 
 static struct list module_settings_list = LIST(module_settings, struct setting, 1);
@@ -190,13 +192,17 @@ int mcp_charlist_handler(void *p) {
 
 	word count = net_get_data(incoming.data, 6, word);
 
-	ui_console_unlock();
+	if (count == 8) {
+		plugin_print("mcp create", "account is full");
 
-	plugin_print("mcp create", "list of characters (%i total):\n", count);
-	sleep(1);
+		return FORWARD_PACKET;
+	}
+
+	// module_setting("Delay")->i_var
+	usleep(500);
 
 	// create
-	mcp_send(0x02, "%d %w %s 00", 0x01, 0x00, "testmoton");
+	mcp_send(0x02, "%d %w %s 00", 0x01, 0x00, "testmotonf");
 
 	return FORWARD_PACKET;
 }
@@ -216,21 +222,18 @@ int mcp_charcreate_handler(void *p) {
 	// character already exists
 	case 0x14: {
 		plugin_error("mcp create", "character exists\n");
-		sleep(1);
-
-		return FORWARD_PACKET;
+		break;
 	}
 
 	case 0x15: {
 		plugin_error("mcp create", "invalid character name\n");
 		sleep(1);
-
-		return FORWARD_PACKET;
+		break;
 	}
 
 	}
 
-	sleep(1);
+	//sleep(1);
 	mcp_send(0x19, "08 00 00 00");
 
 	return FORWARD_PACKET;

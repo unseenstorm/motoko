@@ -37,6 +37,7 @@
 <Plugin type=nested>
 	Name = mcp_create
 	NameList = /home/you/motoko/data
+	Delay = 400
 </Plugin>
 
 # plugin mcp game
