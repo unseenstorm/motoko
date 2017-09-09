@@ -32,6 +32,13 @@
 	Character = character
 </Plugin>
 
+# plugin mcp create
+
+<Plugin type=nested>
+	Name = mcp_create
+	NameList = /home/you/motoko/data
+</Plugin>
+
 # plugin mcp game
 #
 # Difficulty: sets the difficulty of the game (options: normal, nightmare, hell)

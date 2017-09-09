@@ -54,6 +54,8 @@ C_MCP_GAME =		mcp_game.c
 
 C_BNCS_LOGIN =		bncs_login.c
 
+C_MCP_CREATE =		mcp_create.c
+
 
 # C_WARDEN =		wmodule.c		\
 # 				wutil.c			\
@@ -89,7 +91,8 @@ VPATH =	$(ROOT_DIR)/src\
 :$(ROOT_DIR)/lib/plugins/d2gs_record/replay\
 :$(ROOT_DIR)/lib/plugins/mcp_login\
 :$(ROOT_DIR)/lib/plugins/mcp_game\
-:$(ROOT_DIR)/lib/plugins/bncs_login
+:$(ROOT_DIR)/lib/plugins/bncs_login\
+:$(ROOT_DIR)/lib/plugins/mcp_create
 
 # :$(ROOT_DIR)/lib/libwardenc/src\
 # :$(ROOT_DIR)/lib/libwardenc/wardendump
@@ -107,6 +110,7 @@ O_D2GS_PATHING = $(C_D2GS_PATHING:%.c=$(O_DIR)/%.o)
 O_MCP_LOGIN = $(C_MCP_LOGIN:%.c=$(O_DIR)/%.o)
 O_MCP_GAME = $(C_MCP_GAME:%.c=$(O_DIR)/%.o)
 O_BNCS_LOGIN = $(C_BNCS_LOGIN:%.c=$(O_DIR)/%.o)
+O_MCP_CREATE = $(C_MCP_CREATE%.c=$(O_DIR)/%.o)
 
 # O_WARDEN = $(C_WARDEN:%.c=$(O_DIR)/%.o)
 # O_WARDEN_DUMP = $(C_WARDEN_DUMP:%.c=$(O_DIR)/%.o)
@@ -123,7 +127,8 @@ OBJS =	$(O_SRC)					\
 		$(O_D2GS_PATHING)			\
 		$(O_MCP_LOGIN)				\
 		$(O_MCP_GAME)				\
-		$(O_BNCS_LOGIN)
+		$(O_BNCS_LOGIN)				\
+		$(O_MCP_CREATE)
 
 # 		$(O_WARDEN)			\
 #		$(O_WARDEN_DUMP)	\
@@ -144,6 +149,7 @@ LIB_D2GS_REPLAY = $(PLUGIN_DIR)/d2gs_replay_plugin.so
 LIB_MCP_LOGIN = $(PLUGIN_DIR)/mcp_login_plugin.so
 LIB_MCP_GAME = $(PLUGIN_DIR)/mcp_game_plugin.so
 LIB_BNCS_LOGIN = $(PLUGIN_DIR)/bncs_login_plugin.so
+LIB_BNCS_LOGIN = $(PLUGIN_DIR)/mcp_create_plugin.so
 
 # LIB_WARDEN = $(PLUGIN_DIR)/warden_plugin.so
 
@@ -158,7 +164,8 @@ SHARED_LIBS =	$(LIB_D2GS_MEPH)		\
 				$(LIB_D2GS_PATHING)		\
 				$(LIB_MCP_LOGIN)		\
 				$(LIB_MCP_GAME)			\
-				$(LIB_BNCS_LOGIN)
+				$(LIB_BNCS_LOGIN)		\
+				$(LIB_MCP_CREATE)
 #				$(LIB_WARDEN)		\
 
 I_DIR = -I .											\
@@ -279,6 +286,10 @@ $(LIB_MCP_GAME): $(O_MCP_GAME)
 $(LIB_BNCS_LOGIN): $(O_BNCS_LOGIN)
 	@echo "$(BLUE)$?\t$(WHITE)->$(GREEN) $@ $(BASIC)"
 	@$(CC) $(CFLAGS) $(I_DIR) -shared $? -o $@
+
+$(LIB_MCP_CREATE): $(O_MCP_LOGIN)
+	@echo "$(BLUE)$?\t$(WHITE)->$(GREEN) $@ $(BASIC)"
+	@$(CC) $(CFLAGS) $(I_DIR) -shared $? -o $@	
 
 # $(LIB_WARDEN): $(O_WARDEN)
 #	@echo "$(BLUE)$?\t$(WHITE)->$(GREEN) $@ $(BASIC)"
