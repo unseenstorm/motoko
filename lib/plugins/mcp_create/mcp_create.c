@@ -34,12 +34,14 @@
 #include <util/list.h>
 #include <util/net.h>
 
+#define msleep(ms) usleep((ms) * 1000)
+
 static struct setting module_settings[] = (struct setting []) {
 	SETTING("NameList", .s_var = "", STRING),
-	//SETTING("Delay", 1000, useconds_t),
+	SETTING("Delay", .i_var = 5000, INTEGER)
 };
 
-static struct list module_settings_list = LIST(module_settings, struct setting, 1);
+static struct list module_settings_list = LIST(module_settings, struct setting, 2);
 
 #define module_setting(name) ((struct setting *)list_find(&module_settings_list, (comparator_t) compare_setting, name))
 
@@ -79,7 +81,7 @@ _export int module_get_license() {
 }
 
 _export module_type_t module_get_type() {
-	return (module_type_t) { MODULE_MCP, MODULE_PASSIVE };
+	return (module_type_t) { MODULE_MCP, MODULE_ACTIVE };
 }
 
 _export bool module_load_config(struct setting_section *s) {
@@ -89,11 +91,13 @@ _export bool module_load_config(struct setting_section *s) {
 
 		if (set) {
 			if (s->settings[i].type == STRING) {
-				set->s_var = strdup(s->settings[i].s_var);
-				if (set->s_var) {
-					setting_cleanup_t sc = { cleanup_string_setting, set };
-					list_add(&setting_cleaners, &sc);
+				if (set->type == INTEGER) {
+					sscanf(s->settings[i].s_var, "%li",  &set->i_var);
 				}
+			}
+
+			if (s->settings[i].type == INTEGER && set->type == INTEGER) {
+				set->i_var = s->settings[i].i_var;
 			}
 		}
 	}
@@ -180,7 +184,7 @@ int mcp_startup_handler(void *p) {
 
 	}
 
-	plugin_print("mcp create", "request list of characters\n");
+	//plugin_print("mcp create", "request list of characters\n");
 
 	mcp_send(0x19, "08 00 00 00");
 
@@ -198,11 +202,10 @@ int mcp_charlist_handler(void *p) {
 		return FORWARD_PACKET;
 	}
 
-	// module_setting("Delay")->i_var
-	usleep(500);
+	msleep(module_setting("Delay")->i_var);
 
 	// create
-	mcp_send(0x02, "%d %w %s 00", 0x01, 0x00, "testmotonf");
+	mcp_send(0x02, "%d %w %s 00", 0x01, 0x00, "tsstxotonf");
 
 	return FORWARD_PACKET;
 }
@@ -233,7 +236,6 @@ int mcp_charcreate_handler(void *p) {
 
 	}
 
-	//sleep(1);
 	mcp_send(0x19, "08 00 00 00");
 
 	return FORWARD_PACKET;
